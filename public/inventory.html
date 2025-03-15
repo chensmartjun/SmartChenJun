@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>库存盘点</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-ui@2.15.6/lib/theme-chalk/index.css">
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/element-ui@2.15.6/lib/index.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios@0.21.1/dist/axios.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { width: 100%; height: 100%; font-family: Arial, sans-serif; }
+    .content { padding: 10px; overflow-y: auto; background: #f0f0f0; }
+    .operation-bar {
+      background: #fff;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .pagination-buttons img {
+      width: 30px;
+      height: 30px;
+      margin: 0 5px;
+      cursor: pointer;
+    }
+    .pagination-buttons img.gray { opacity: 0.5; cursor: not-allowed; }
+    .utility-buttons { display: flex; gap: 2px; }
+    .utility-buttons .el-button, .action-buttons .el-button { height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+    .utility-buttons .el-button { color: #fff; border-color: #dcdcdc; }
+    .utility-buttons .filter-btn { background-color: #9B59B6; }
+    .utility-buttons .import-btn { background-color: #1ABC9C; }
+    .utility-buttons .export-btn { background-color: #F1C40F; }
+    .action-buttons { display: flex; flex-direction: row-reverse; gap: 2px; }
+    .action-buttons .el-button { color: #fff; border-color: transparent; }
+    .action-buttons .add-btn { background-color: #409EFF; }
+    .action-buttons .edit-btn { background-color: #E6A23C; }
+    .action-buttons .delete-btn { background-color: #F56C6C; }
+    .action-buttons .save-btn { background-color: #67C23A; }
+    .action-buttons .withdraw-btn { background-color: #E91E63; }
+    .action-buttons .print-btn { background-color: #7F8C8D; }
+    .utility-buttons .el-button:hover, .action-buttons .el-button:hover { opacity: 0.9; }
+    .selection-bar { background: #fff; padding: 10px; margin-bottom: 10px; border-radius: 4px; display: flex; align-items: center; gap: 10px; }
+    .el-button { padding: 0px 12px; font-size: 12px; height: 28px; display: flex; align-items: center; justify-content: center; min-width: 80px; }
+    .form-section { background: #fff; padding: 20px; border-radius: 4px; margin-bottom: 10px; }
+    .table-section { background: #fff; padding: 20px; border-radius: 4px; }
+    .summary-section { background: #fff; padding: 10px; border-radius: 4px; margin-top: 10px; }
+    @media print { .operation-bar, .selection-bar, .form-section { display: none; } .table-section { display: block !important; } }
+  </style>
+</head>
+<body>
+  <div id="app" class="content">
+    <div class="operation-bar">
+      <div style="display: flex; align-items: center;">
+        <div class="pagination-buttons">
+          <img src="material/Page 1.png" alt="第一页" :class="{ gray: currentPage === 1 }" @click="goFirstPage">
+          <img src="material/Previous Page.png" alt="上一页" :class="{ gray: currentPage === 1 }" @click="goPrevPage">
+          <img src="material/Next Page.png" alt="下一页" :class="{ gray: currentPage === Math.ceil(total / pageSize) }" @click="goNextPage">
+          <img src="material/Last Page.png" alt="最后一页" :class="{ gray: currentPage === Math.ceil(total / pageSize) }" @click="goLastPage">
+        </div>
+        <div class="utility-buttons">
+          <el-button type="default" size="small" icon="el-icon-search" class="filter-btn" @click="fetchStocktakes">筛选</el-button>
+          <el-button type="default" size="small" icon="el-icon-upload" class="import-btn" @click="importData">导入</el-button>
+          <el-button type="default" size="small" icon="el-icon-download" class="export-btn" @click="exportData">导出</el-button>
+        </div>
+      </div>
+      <div class="action-buttons">
+        <el-button type="default" size="small" icon="el-icon-printer" class="print-btn" @click="printVoucher">打印</el-button>
+        <el-button type="default" size="small" class="withdraw-btn" @click="withdraw">撤回</el-button>
+        <el-button type="default" size="small" class="save-btn" @click="saveStocktake" :disabled="!currentStocktake">保存</el-button>
+        <el-button type="default" size="small" class="delete-btn" @click="deleteStocktake" :disabled="selectedRows.length === 0">删除</el-button>
+        <el-button type="default" size="small" class="edit-btn" @click="editStocktake" :disabled="selectedRows.length !== 1">修改</el-button>
+        <el-button type="default" size="small" class="add-btn" @click="addStocktake">新建</el-button>
+      </div>
+    </div>
+    <div class="selection-bar" v-if="currentStocktake">
+      <el-input v-model="currentStocktake.stocktake_number" placeholder="盘点单号" disabled style="width: 200px;"></el-input>
+      <el-select v-model="currentStocktake.counter_id" placeholder="请选择柜台" style="width: 200px;">
+        <el-option v-for="counter in counters" :key="counter.id" :label="counter.name" :value="counter.id"></el-option>
+      </el-select>
+      <el-input v-model="currentStocktake.date" placeholder="时间" disabled style="width: 150px;"></el-input>
+    </div>
+    <div class="form-section" v-if="currentStocktake">
+      <el-table :data="currentStocktake.details" border style="width: 100%;">
+        <el-table-column type="selection" width="55"></el-table-column>
+        <el-table-column label="条形码" prop="barcode" width="150">
+          <template slot-scope="scope">
+            <el-input v-model="scope.row.barcode" disabled></el-input>
+          </template>
+        </el-table-column>
+        <el-table-column label="产品编码" prop="product_code" width="120">
+          <template slot-scope="scope">
+            <el-input v-model="scope.row.product_code" disabled></el-input>
+          </template>
+        </el-table-column>
+        <el-table-column label="产品名称" prop="product_name" width="150">
+          <template slot-scope="scope">
+            <el-input v-model="scope.row.product_name" disabled></el-input>
+          </template>
+        </el-table-column>
+        <el-table-column label="实际金重" prop="weight" width="80">
+          <template slot-scope="scope">
+            <el-input v-model.number="scope.row.weight" type="number"></el-input>
+          </template>
+        </el-table-column>
+        <el-table-column label="实际净金重" prop="pure_weight" width="80">
+          <template slot-scope="scope">
+            <el-input v-model.number="scope.row.pure_weight" type="number"></el-input>
+          </template>
+        </el-table-column>
+        <el-table-column label="实际数量" prop="quantity" width="80">
+          <template slot-scope="scope">
+            <el-input v-model.number="scope.row.quantity" type="number"></el-input>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+    <div class="summary-section" v-if="currentStocktake">
+      <el-row>
+        <el-col :span="6">总实际金重: {{ (currentStocktake.total_weight || 0).toFixed(3) }} g</el-col>
+        <el-col :span="6">总实际净金重: {{ (currentStocktake.total_pure_weight || 0).toFixed(3) }} g</el-col>
+        <el-col :span="6">总实际数量: {{ currentStocktake.total_quantity || 0 }}</el-col>
+      </el-row>
+    </div>
+    <div class="table-section">
+      <el-table :data="stocktakes" border style="width: 100%;" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="55"></el-table-column>
+        <el-table-column prop="stocktake_number" label="盘点单号"></el-table-column>
+        <el-table-column prop="date" label="日期"></el-table-column>
+        <el-table-column prop="counter.name" label="柜台"></el-table-column>
+        <el-table-column prop="total_quantity" label="总数量"></el-table-column>
+      </el-table>
+    </div>
+  </div>
+
+  <script>
+    new Vue({
+      el: '#app',
+      data() {
+        return {
+          counters: [],
+          stocktakes: [],
+          currentStocktake: {},
+          selectedRows: [],
+          filter: {
+            counter_id: '',
+            date: '',
+          },
+          currentPage: 1,
+          pageSize: 10,
+          total: 0,
+        };
+      },
+      methods: {
+        fetchCounters() {
+          axios.get('/api/counters', { params: { page: 1, size: 999 } })
+            .then(response => this.counters = response.data.data || [])
+            .catch(error => console.error('Fetch counters error:', error));
+        },
+        fetchStocktakes() {
+          // 暂时注释掉未实现的 API 调用
+          // const params = { page: this.currentPage, size: this.pageSize, ...this.filter };
+          // if (params.date) params.date = this.$options.filters.format(new Date(params.date), 'yyyy-MM-dd');
+          // axios.get('/api/stocktakes', { params })
+          //   .then(response => {
+          //     this.stocktakes = response.data.data || [];
+          //     this.total = response.data.total || 0;
+          //   })
+          //   .catch(error => console.error('Fetch stocktakes error:', error));
+        },
+        goFirstPage() {
+          if (this.currentPage !== 1) {
+            this.currentPage = 1;
+            this.fetchStocktakes();
+          }
+        },
+        goPrevPage() {
+          if (this.currentPage > 1) {
+            this.currentPage--;
+            this.fetchStocktakes();
+          }
+        },
+        goNextPage() {
+          if (this.currentPage < Math.ceil(this.total / this.pageSize)) {
+            this.currentPage++;
+            this.fetchStocktakes();
+          }
+        },
+        goLastPage() {
+          if (this.currentPage !== Math.ceil(this.total / this.pageSize)) {
+            this.currentPage = Math.ceil(this.total / this.pageSize);
+            this.fetchStocktakes();
+          }
+        },
+        addStocktake() {
+          const stocktakeNumber = `ST${this.$options.filters.format(new Date(), 'yyyyMMdd')}${String(this.stocktakes.length + 1).padStart(4, '0')}`;
+          // 暂时注释掉未实现的 API 调用
+          // axios.get('/api/inventory', { params: { counter_id: this.currentStocktake?.counter_id } })
+          //   .then(response => {
+          //     this.currentStocktake = {
+          //       stocktake_number: stocktakeNumber,
+          //       date: this.$options.filters.format(new Date(), 'yyyy-MM-dd'),
+          //       counter_id: '',
+          //       details: response.data.data.map(item => ({
+          //         barcode: item.barcode,
+          //         product_code: item.product_code,
+          //         product_name: item.product_name,
+          //         weight: item.weight,
+          //         pure_weight: item.pure_weight,
+          //         quantity: item.quantity,
+          //       })),
+          //       total_weight: 0,
+          //       total_pure_weight: 0,
+          //       total_quantity: 0,
+          //     };
+          //     this.calculateTotals();
+          //   })
+          //   .catch(error => console.error('Fetch inventory error:', error));
+          this.currentStocktake = {
+            stocktake_number: stocktakeNumber,
+            date: this.$options.filters.format(new Date(), 'yyyy-MM-dd'),
+            counter_id: '',
+            details: [],
+            total_weight: 0,
+            total_pure_weight: 0,
+            total_quantity: 0,
+          };
+        },
+        editStocktake() {
+          if (this.selectedRows.length === 1) {
+            // 暂时注释掉未实现的 API 调用
+            // axios.get(`/api/stocktakes/${this.selectedRows[0].id}`)
+            //   .then(response => {
+            //     this.currentStocktake = response.data;
+            //     this.currentStocktake.details = this.currentStocktake.StocktakeDetails || [];
+            //     this.calculateTotals();
+            //   })
+            //   .catch(error => console.error('Edit error:', error));
+          }
+        },
+        deleteStocktake() {
+          if (this.selectedRows.length > 0) {
+            if (confirm('确定删除选中的记录？')) {
+              // 暂时注释掉未实现的 API 调用
+              // const promises = this.selectedRows.map(row => axios.delete(`/api/stocktakes/${row.id}`));
+              // Promise.all(promises)
+              //   .then(() => {
+              //     alert('删除成功');
+              //     this.fetchStocktakes();
+              //   })
+              //   .catch(error => alert('删除失败：' + error.message));
+            }
+          }
+        },
+        saveStocktake() {
+          const method = this.currentStocktake.id ? 'put' : 'post';
+          const url = this.currentStocktake.id ? `/api/stocktakes/${this.currentStocktake.id}` : '/api/stocktakes';
+          // 暂时注释掉未实现的 API 调用
+          // axios[method](url, this.currentStocktake)
+          //   .then(response => {
+          //     alert('保存成功');
+          //     this.currentStocktake = {};
+          //     this.fetchStocktakes();
+          //   })
+          //   .catch(error => alert('保存失败：' + error.message));
+          alert('保存功能待实现');
+        },
+        withdraw() {
+          this.currentStocktake = {};
+          alert('已回撤');
+        },
+        calculateTotals() {
+          const details = this.currentStocktake.details;
+          this.currentStocktake.total_weight = details.reduce((sum, item) => sum + (item.weight * item.quantity), 0);
+          this.currentStocktake.total_pure_weight = details.reduce((sum, item) => sum + ((item.pure_weight || item.weight) * item.quantity), 0);
+          this.currentStocktake.total_quantity = details.reduce((sum, item) => sum + item.quantity, 0);
+        },
+        printVoucher() {
+          if (this.currentStocktake && this.currentStocktake.id) {
+            // 暂时注释掉未实现的 API 调用
+            // axios.post('/api/printVoucher', { type: 'stocktake', order_id: this.currentStocktake.id }, { responseType: 'blob' })
+            //   .then(response => {
+            //     const url = window.URL.createObjectURL(new Blob([response.data]));
+            //     const link = document.createElement('a');
+            //     link.href = url;
+            //     link.setAttribute('download', `stocktake_voucher_${this.currentStocktake.stocktake_number}.xlsx`);
+            //     document.body.appendChild(link);
+            //     link.click();
+            //   });
+          } else if (this.selectedRows.length > 0) {
+            // 暂时注释掉未实现的 API 调用
+            // this.selectedRows.forEach(row => {
+            //   axios.post('/api/printVoucher', { type: 'stocktake', order_id: row.id }, { responseType: 'blob' })
+            //     .then(response => {
+            //       const url = window.URL.createObjectURL(new Blob([response.data]));
+            //       const link = document.createElement('a');
+            //       link.href = url;
+            //       link.setAttribute('download', `stocktake_voucher_${row.stocktake_number}.xlsx`);
+            //       document.body.appendChild(link);
+            //       link.click();
+            //     });
+            // });
+          }
+          alert('打印功能待实现');
+        },
+        importData() {
+          alert('导入功能待实现');
+        },
+        exportData() {
+          const data = this.stocktakes.map(stocktake => ({
+            stocktake_number: stocktake.stocktake_number,
+            date: stocktake.date,
+            counter: stocktake.counter?.name,
+            total_quantity: stocktake.total_quantity,
+          }));
+          const worksheet = XLSX.utils.json_to_sheet(data);
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, 'Stocktakes');
+          const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+          const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', `stocktakes_${this.$options.filters.format(new Date(), 'yyyyMMdd')}.xlsx`);
+          document.body.appendChild(link);
+          link.click();
+        },
+        handleSelectionChange(val) {
+          this.selectedRows = val;
+        },
+      },
+      filters: {
+        format(date, formatStr) {
+          return date ? require('date-fns/format')(new Date(date), formatStr) : '';
+        }
+      },
+      mounted() {
+        console.log('Mounted, fetching data...');
+        this.fetchCounters();
+        // 暂时注释掉未实现的 API 调用
+        // this.fetchStocktakes();
+      },
+    });
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/date-fns@2.30.0/dist/date-fns.min.js"></script>
+</body>
+</html>

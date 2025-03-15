@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>收支管理</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-ui@2.15.6/lib/theme-chalk/index.css">
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/element-ui@2.15.6/lib/index.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios@0.21.1/dist/axios.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { width: 100%; height: 100%; font-family: Arial, sans-serif; }
+    .container { display: flex; height: 100vh; }
+    .sidebar { width: 200px; background: #fff; border-right: 1px solid #e6e6e6; }
+    .sidebar .el-menu { border-right: none; }
+    .sidebar .el-menu-item.is-active { background-color: #409EFF; color: #fff; }
+    .sidebar .el-menu-item { font-size: 14px; }
+    .content { flex: 1; padding: 10px; overflow-y: auto; background: #f0f0f0; }
+    .operation-bar {
+      background: #fff;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .pagination-buttons img {
+      width: 30px;
+      height: 30px;
+      margin: 0 5px;
+      cursor: pointer;
+    }
+    .pagination-buttons img.gray { opacity: 0.5; cursor: not-allowed; }
+    .utility-buttons { display: flex; gap: 2px; }
+    .utility-buttons .el-button, .action-buttons .el-button { height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+    .utility-buttons .el-button { color: #fff; border-color: #dcdcdc; }
+    .utility-buttons .filter-btn { background-color: #9B59B6; }
+    .utility-buttons .export-btn { background-color: #F1C40F; }
+    .action-buttons { display: flex; flex-direction: row-reverse; gap: 2px; }
+    .action-buttons .el-button { color: #fff; border-color: transparent; }
+    .action-buttons .add-btn { background-color: #409EFF; }
+    .action-buttons .delete-btn { background-color: #F56C6C; }
+    .action-buttons .save-btn { background-color: #67C23A; }
+    .action-buttons .print-btn { background-color: #7F8C8D; }
+    .utility-buttons .el-button:hover, .action-buttons .el-button:hover { opacity: 0.9; }
+    .selection-bar { background: #fff; padding: 10px; margin-bottom: 10px; border-radius: 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .form-section { background: #fff; padding: 20px; border-radius: 4px; margin-bottom: 10px; }
+    .table-section { background: #fff; padding: 20px; border-radius: 4px; }
+    .el-button { padding: 0px 12px; font-size: 12px; height: 28px; display: flex; align-items: center; justify-content: center; min-width: 80px; }
+    .el-table { font-size: 12px; }
+    .el-table th, .el-table td { padding: 6px 0; }
+    .batch-form { margin-bottom: 10px; }
+    .batch-form .el-table { width: 100%; }
+    .batch-form .el-input { width: 150px; margin-right: 10px; }
+    .batch-form .el-select { width: 150px; margin-right: 10px; }
+    /* 去除输入框的上下微调按钮 */
+    .el-input-number__decrease, .el-input-number__increase {
+      display: none !important;
+    }
+    .el-input__inner[type="number"] {
+      -moz-appearance: textfield;
+    }
+    .el-input__inner[type="number"]::-webkit-inner-spin-button,
+    .el-input__inner[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="container">
+    <div class="sidebar">
+      <el-menu :default-active="entityType" @select="handleMenuSelect">
+        <el-menu-item index="supplier">供应商</el-menu-item>
+        <el-menu-item index="customer">客户</el-menu-item>
+      </el-menu>
+    </div>
+    <div class="content">
+      <div class="operation-bar">
+        <div style="display: flex; align-items: center;">
+          <div class="pagination-buttons">
+            <img src="material/Page 1.png" alt="第一页" :class="{ gray: currentPage === 1 }" @click="goFirstPage">
+            <img src="material/Previous Page.png" alt="上一页" :class="{ gray: currentPage === 1 }" @click="goPrevPage">
+            <img src="material/Next Page.png" alt="下一页" :class="{ gray: currentPage === Math.ceil(total / pageSize) }" @click="goNextPage">
+            <img src="material/Last Page.png" alt="最后一页" :class="{ gray: currentPage === Math.ceil(total / pageSize) }" @click="goLastPage">
+          </div>
+          <div class="utility-buttons">
+            <el-button type="default" size="small" icon="el-icon-search" class="filter-btn" @click="fetchPaymentRecords">筛选</el-button>
+            <el-button type="default" size="small" icon="el-icon-download" class="export-btn" @click="exportData">导出</el-button>
+          </div>
+        </div>
+        <div class="action-buttons">
+          <el-button type="default" size="small" icon="el-icon-printer" class="print-btn" @click="printVoucher" :disabled="selectedRows.length === 0">打印凭证</el-button>
+          <el-button type="default" size="small" class="delete-btn" @click="deletePaymentRecords" :disabled="selectedRows.length === 0">删除</el-button>
+          <el-button type="default" size="small" class="save-btn" @click="savePaymentRecords" :disabled="paymentRecordsToSave.length === 0">保存</el-button>
+          <el-button type="default" size="small" class="add-btn" @click="addPaymentRecordRow">新建</el-button>
+        </div>
+      </div>
+      <div class="selection-bar">
+        <el-select v-if="entityType === 'supplier'" v-model="filter.supplier_id" placeholder="请选择供应商" style="width: 200px;" filterable @change="fetchPaymentRecords">
+          <el-option v-for="supplier in suppliers" :key="supplier.id" :label="supplier.short_name" :value="supplier.id"></el-option>
+        </el-select>
+        <el-select v-if="entityType === 'customer'" v-model="filter.customer_id" placeholder="请选择客户" style="width: 200px;" filterable @change="fetchPaymentRecords">
+          <el-option v-for="customer in customers" :key="customer.id" :label="customer.short_name" :value="customer.id"></el-option>
+        </el-select>
+        <el-date-picker
+          v-model="filter.dateRange"
+          type="daterange"
+          range-separator="至"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          format="yyyy-MM-dd"
+          value-format="yyyy-MM-dd"
+          @change="fetchPaymentRecords"
+          style="width: 300px;"
+        ></el-date-picker>
+      </div>
+      <div class="form-section" v-if="paymentRecordsToSave.length > 0">
+        <el-table :data="paymentRecordsToSave" border style="width: 100%;" class="batch-form">
+          <el-table-column label="单号" width="160">
+            <template slot-scope="scope">
+              <el-input v-model="scope.row.order_number" disabled></el-input>
+            </template>
+          </el-table-column>
+          <el-table-column label="时间" width="160">
+            <template slot-scope="scope">
+              <el-input v-model="scope.row.payment_date" disabled></el-input>
+            </template>
+          </el-table-column>
+          <el-table-column v-if="entityType === 'supplier'" label="供应商" width="180">
+            <template slot-scope="scope">
+              <el-select v-model="scope.row.supplier_id" placeholder="请选择供应商" style="width: 150px;" filterable>
+                <el-option v-for="supplier in suppliers" :key="supplier.id" :label="supplier.short_name" :value="supplier.id"></el-option>
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column v-if="entityType === 'customer'" label="客户" width="180">
+            <template slot-scope="scope">
+              <el-select v-model="scope.row.customer_id" placeholder="请选择客户" style="width: 150px;" filterable>
+                <el-option v-for="customer in customers" :key="customer.id" :label="customer.short_name" :value="customer.id"></el-option>
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="收入板料 (g)" width="150">
+            <template slot-scope="scope">
+              <el-input v-model.number="scope.row.income_material" type="number" @input="calculateAmount(scope.row)"></el-input>
+            </template>
+          </el-table-column>
+          <el-table-column label="支出板料 (g)" width="150">
+            <template slot-scope="scope">
+              <el-input v-model.number="scope.row.expense_material" type="number" @input="calculateAmount(scope.row)"></el-input>
+            </template>
+          </el-table-column>
+          <el-table-column label="收入工费 (元)" width="150">
+            <template slot-scope="scope">
+              <el-input v-model.number="scope.row.income_fee" type="number" @input="calculateAmount(scope.row)"></el-input>
+            </template>
+          </el-table-column>
+          <el-table-column label="支出工费 (元)" width="150">
+            <template slot-scope="scope">
+              <el-input v-model.number="scope.row.expense_fee" type="number" @input="calculateAmount(scope.row)"></el-input>
+            </template>
+          </el-table-column>
+          <el-table-column v-if="entityType === 'customer'" label="结价/g" width="130">
+            <template slot-scope="scope">
+              <el-input v-model.number="scope.row.settle_weight" type="number" @input="calculateSettleAmount(scope.row)"></el-input>
+            </template>
+          </el-table-column>
+          <el-table-column v-if="entityType === 'customer'" label="金价 (元/g)" width="130">
+            <template slot-scope="scope">
+              <el-input v-model.number="scope.row.gold_price" type="number" @input="calculateSettleAmount(scope.row)"></el-input>
+            </template>
+          </el-table-column>
+          <el-table-column v-if="entityType === 'customer'" label="结价金额 (元)" width="150">
+            <template slot-scope="scope">
+              <el-input v-model.number="scope.row.settle_amount" disabled></el-input>
+            </template>
+          </el-table-column>
+          <el-table-column label="备注" width="180">
+            <template slot-scope="scope">
+              <el-input v-model="scope.row.description" placeholder="备注"></el-input>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="80">
+            <template slot-scope="scope">
+              <el-button type="danger" size="mini" @click="removePaymentRecordRow(scope.$index)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-button type="primary" size="small" @click="addPaymentRecordRow" style="margin-top: 10px;">增加行</el-button>
+      </div>
+      <div class="table-section">
+        <el-table :data="paymentRecords" border style="width: 100%;" @selection-change="handleSelectionChange">
+          <el-table-column type="selection" width="55"></el-table-column>
+          <el-table-column prop="order_number" label="单号" width="160"></el-table-column>
+          <el-table-column prop="payment_date" label="日期" width="160">
+            <template slot-scope="scope">{{ formatDate(new Date(scope.row.payment_date), 'yyyy-MM-dd HH:mm:ss') }}</template>
+          </el-table-column>
+          <el-table-column :label="entityType === 'supplier' ? '供应商' : '客户'" width="180">
+            <template slot-scope="scope">
+              {{ entityType === 'supplier' ? (scope.row.supplier?.short_name || '未知') : (scope.row.customer?.short_name || '未知') }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="income_material" label="收入板料 (g)" width="150">
+            <template slot-scope="scope">{{ scope.row.income_material.toFixed(2) }}</template>
+          </el-table-column>
+          <el-table-column prop="expense_material" label="支出板料 (g)" width="150">
+            <template slot-scope="scope">{{ scope.row.expense_material.toFixed(2) }}</template>
+          </el-table-column>
+          <el-table-column prop="income_fee" label="收入工费 (元)" width="150">
+            <template slot-scope="scope">{{ scope.row.income_fee.toFixed(2) }}</template>
+          </el-table-column>
+          <el-table-column prop="expense_fee" label="支出工费 (元)" width="150">
+            <template slot-scope="scope">{{ scope.row.expense_fee.toFixed(2) }}</template>
+          </el-table-column>
+          <el-table-column v-if="entityType === 'customer'" prop="settle_weight" label="结价/g" width="130">
+            <template slot-scope="scope">{{ scope.row.settle_weight.toFixed(2) }}</template>
+          </el-table-column>
+          <el-table-column v-if="entityType === 'customer'" prop="gold_price" label="金价 (元/g)" width="130">
+            <template slot-scope="scope">{{ scope.row.gold_price.toFixed(2) }}</template>
+          </el-table-column>
+          <el-table-column v-if="entityType === 'customer'" prop="settle_amount" label="结价金额 (元)" width="150">
+            <template slot-scope="scope">{{ scope.row.settle_amount.toFixed(2) }}</template>
+          </el-table-column>
+          <el-table-column prop="amount" label="数量" width="150">
+            <template slot-scope="scope">
+              {{ Math.abs(Number(scope.row.amount)).toFixed(2) }} {{ scope.row.type.includes('material') ? 'g' : '元' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="description" label="备注" width="180"></el-table-column>
+        </el-table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    if (typeof Vue === 'undefined') {
+      console.error('Vue is not defined. Please check if the Vue script loaded correctly.');
+    } else {
+      new Vue({
+        el: '#app',
+        data() {
+          return {
+            entityType: 'supplier', // 默认显示供应商收支
+            suppliers: [],
+            customers: [],
+            paymentRecords: [],
+            paymentRecordsToSave: [],
+            selectedRows: [],
+            filter: {
+              supplier_id: '',
+              customer_id: '',
+              dateRange: [],
+            },
+            currentPage: 1,
+            pageSize: 10,
+            total: 0,
+            typeLabels: {
+              'income_material': '收入板料',
+              'expense_material': '支出板料',
+              'income_fee': '收入工费',
+              'expense_fee': '支出工费',
+              'income_material_customer': '收入板料',
+              'expense_material_customer': '支出板料',
+              'income_fee_customer': '收入工费',
+              'expense_fee_customer': '支出工费',
+            },
+            orderNumberCounter: 1, // 用于生成临时单号
+          };
+        },
+        methods: {
+          fetchSuppliers() {
+            axios.get('/api/suppliers', { params: { page: 1, size: 999 } })
+              .then(response => {
+                this.suppliers = response.data.data || [];
+              })
+              .catch(error => console.error('Fetch suppliers error:', error));
+          },
+          fetchCustomers() {
+            axios.get('/api/customers', { params: { page: 1, size: 999 } })
+              .then(response => {
+                this.customers = response.data.data || [];
+              })
+              .catch(error => console.error('Fetch customers error:', error));
+          },
+          fetchPaymentRecords() {
+            const params = {
+              page: this.currentPage,
+              size: this.pageSize,
+              start_date: this.filter.dateRange && this.filter.dateRange[0] ? this.filter.dateRange[0] : null,
+              end_date: this.filter.dateRange && this.filter.dateRange[1] ? this.filter.dateRange[1] : null,
+            };
+            if (this.entityType === 'supplier') {
+              params.supplier_id = this.filter.supplier_id || '';
+            } else {
+              params.customer_id = this.filter.customer_id || '';
+            }
+            axios.get('/api/paymentRecords', { params })
+              .then(response => {
+                this.paymentRecords = response.data.data || [];
+                this.total = response.data.total || 0;
+                console.log('Fetched payment records:', this.paymentRecords);
+                this.selectedRows = [];
+              })
+              .catch(error => {
+                console.error('Fetch payment records error:', error);
+                this.paymentRecords = [];
+                this.total = 0;
+                this.selectedRows = [];
+              });
+          },
+          handleMenuSelect(type) {
+            this.entityType = type;
+            this.filter.supplier_id = '';
+            this.filter.customer_id = '';
+            this.paymentRecords = [];
+            this.paymentRecordsToSave = [];
+            this.selectedRows = [];
+            this.currentPage = 1;
+            this.orderNumberCounter = 1;
+            this.fetchPaymentRecords();
+          },
+          goFirstPage() {
+            if (this.currentPage !== 1) {
+              this.currentPage = 1;
+              this.fetchPaymentRecords();
+            }
+          },
+          goPrevPage() {
+            if (this.currentPage > 1) {
+              this.currentPage--;
+              this.fetchPaymentRecords();
+            }
+          },
+          goNextPage() {
+            if (this.currentPage < Math.ceil(this.total / this.pageSize)) {
+              this.currentPage++;
+              this.fetchPaymentRecords();
+            }
+          },
+          goLastPage() {
+            if (this.currentPage !== Math.ceil(this.total / this.pageSize)) {
+              this.currentPage = Math.ceil(this.total / this.pageSize);
+              this.fetchPaymentRecords();
+            }
+          },
+          addPaymentRecordRow() {
+            const orderNumber = `PAY-${this.formatDate(new Date(), 'yyyyMMdd')}-${String(this.orderNumberCounter++).padStart(4, '0')}`;
+            this.paymentRecordsToSave.push({
+              order_number: orderNumber,
+              payment_date: this.formatDate(new Date(), 'yyyy-MM-dd HH:mm:ss'),
+              supplier_id: this.entityType === 'supplier' ? '' : null,
+              customer_id: this.entityType === 'customer' ? '' : null,
+              income_material: 0,
+              expense_material: 0,
+              income_fee: 0,
+              expense_fee: 0,
+              settle_weight: 0,
+              gold_price: 0,
+              settle_amount: 0,
+              description: '',
+              type: '', // 动态确定类型
+              amount: 0, // 动态计算金额
+            });
+          },
+          removePaymentRecordRow(index) {
+            this.paymentRecordsToSave.splice(index, 1);
+          },
+          calculateAmount(row) {
+            const materialAmount = (parseFloat(row.income_material || 0) - parseFloat(row.expense_material || 0));
+            const feeAmount = (parseFloat(row.income_fee || 0) - parseFloat(row.expense_fee || 0));
+            row.amount = materialAmount + feeAmount;
+
+            const typePrefix = this.entityType === 'supplier' ? '' : '_customer';
+            if (materialAmount !== 0) {
+              row.type = materialAmount > 0 ? `income_material${typePrefix}` : `expense_material${typePrefix}`;
+            } else if (feeAmount !== 0) {
+              row.type = feeAmount > 0 ? `income_fee${typePrefix}` : `expense_fee${typePrefix}`;
+            } else {
+              row.type = '';
+            }
+          },
+          calculateSettleAmount(row) {
+            const materialDeficit = parseFloat(row.settle_weight || 0) - (parseFloat(row.income_material || 0) - parseFloat(row.expense_material || 0));
+            if (materialDeficit > 0 && row.gold_price) {
+              row.settle_amount = Number(materialDeficit * row.gold_price).toFixed(2);
+            } else {
+              row.settle_amount = 0;
+            }
+            this.calculateAmount(row);
+          },
+          savePaymentRecords() {
+            const validRecords = this.paymentRecordsToSave.filter(record => {
+              if (this.entityType === 'supplier' && !record.supplier_id) return false;
+              if (this.entityType === 'customer' && !record.customer_id) return false;
+              if (!record.type || record.amount === 0) return false;
+              return true;
+            });
+            if (validRecords.length === 0) {
+              this.$message.error('请至少填写一条有效的记录');
+              return;
+            }
+            const payload = validRecords.map(record => ({
+              supplier_id: record.supplier_id || null,
+              customer_id: record.customer_id || null,
+              payment_date: record.payment_date,
+              type: record.type,
+              amount: record.amount,
+              description: record.description,
+              order_number: record.order_number,
+              income_material: record.income_material,
+              expense_material: record.expense_material,
+              income_fee: record.income_fee,
+              expense_fee: record.expense_fee,
+              settle_weight: record.settle_weight,
+              gold_price: record.gold_price,
+              settle_amount: record.settle_amount,
+            }));
+            axios.post('/api/paymentRecords', payload)
+              .then(response => {
+                this.$message.success('保存成功');
+                this.paymentRecordsToSave = [];
+                this.orderNumberCounter = 1;
+                this.fetchPaymentRecords();
+              })
+              .catch(error => {
+                console.error('Create payment record failed:', error);
+                this.$message.error('保存失败：' + (error.response?.data?.error || error.message));
+              });
+          },
+          deletePaymentRecords() {
+            if (this.selectedRows.length > 0) {
+              if (confirm('确定删除选中的记录？')) {
+                const promises = this.selectedRows.map(row =>
+                  axios.delete(`/api/paymentRecords/${row.id}`)
+                    .catch(error => {
+                      if (error.response && error.response.status === 404) {
+                        console.warn(`记录 ${row.id} 已不存在，可能已被删除`);
+                        return null;
+                      }
+                      throw error;
+                    })
+                );
+                Promise.all(promises)
+                  .then(results => {
+                    this.$message.success('删除成功');
+                    this.fetchPaymentRecords();
+                    this.selectedRows = [];
+                  })
+                  .catch(error => {
+                    this.$message.error('删除失败：' + (error.response?.data?.error || error.message));
+                    this.fetchPaymentRecords();
+                    this.selectedRows = [];
+                  });
+              }
+            } else {
+              this.$message.warning('请至少选择一条记录进行删除');
+            }
+          },
+          printVoucher() {
+            if (this.selectedRows.length === 0) {
+              this.$message.warning('请至少选择一条记录打印凭证');
+              return;
+            }
+            const payment_ids = this.selectedRows.map(row => row.id);
+            axios.post('/api/printPaymentVoucher', { payment_ids, type: this.entityType }, { responseType: 'blob' })
+              .then(response => {
+                const url = window.URL.createObjectURL(new Blob([response.data]));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', `收支凭证_${this.formatDate(new Date(), 'yyyyMMdd')}.xlsx`);
+                document.body.appendChild(link);
+                link.click();
+              })
+              .catch(error => this.$message.error('打印凭证失败: ' + (error.response?.data?.error || error.message)));
+          },
+          exportData() {
+            if (this.paymentRecords.length === 0) {
+              this.$message.warning('无数据可导出');
+              return;
+            }
+            const data = this.paymentRecords.map(record => ({
+              order_number: record.order_number,
+              payment_date: this.formatDate(new Date(record.payment_date), 'yyyy-MM-dd HH:mm:ss'),
+              entity: this.entityType === 'supplier' ? (record.supplier?.short_name || '未知') : (record.customer?.short_name || '未知'),
+              income_material: record.income_material.toFixed(2),
+              expense_material: record.expense_material.toFixed(2),
+              income_fee: record.income_fee.toFixed(2),
+              expense_fee: record.expense_fee.toFixed(2),
+              settle_weight: record.settle_weight.toFixed(2),
+              gold_price: record.gold_price.toFixed(2),
+              settle_amount: record.settle_amount.toFixed(2),
+              amount: `${Math.abs(Number(record.amount)).toFixed(2)} ${record.type.includes('material') ? 'g' : '元'}`,
+              description: record.description || '',
+            }));
+            const worksheet = XLSX.utils.json_to_sheet(data);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, '收支记录');
+            const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `收支记录_${this.entityType}_${this.formatDate(new Date(), 'yyyyMMdd')}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+          },
+          formatDate(date, formatStr) {
+            const pad = (num) => String(num).padStart(2, '0');
+            const year = date.getFullYear();
+            const month = pad(date.getMonth() + 1);
+            const day = pad(date.getDate());
+            const hours = pad(date.getHours());
+            const minutes = pad(date.getMinutes());
+            const seconds = pad(date.getSeconds());
+            if (formatStr === 'yyyyMMdd') return `${year}${month}${day}`;
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+          },
+          handleSelectionChange(val) {
+            this.selectedRows = val;
+          },
+        },
+        mounted() {
+          console.log('Mounted, fetching data...');
+          this.fetchSuppliers();
+          this.fetchCustomers();
+          this.addPaymentRecordRow(); // 默认添加一行
+          this.fetchPaymentRecords();
+        },
+      });
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/date-fns@2.30.0/dist/date-fns.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>综合报表</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-ui@2.15.6/lib/theme-chalk/index.css">
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/element-ui@2.15.6/lib/index.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios@0.21.1/dist/axios.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { width: 100%; height: 100%; font-family: Arial, sans-serif; }
+    .container { display: flex; height: 100vh; }
+    .sidebar { width: 200px; background: #fff; border-right: 1px solid #e6e6e6; }
+    .sidebar .el-menu { border-right: none; }
+    .sidebar .el-menu-item.is-active { background-color: #409EFF; color: #fff; }
+    .sidebar .el-menu-item { font-size: 14px; }
+    .content { flex: 1; padding: 10px; overflow-y: auto; background: #f0f0f0; }
+    .operation-bar {
+      background: #fff;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .utility-buttons { display: flex; gap: 2px; }
+    .utility-buttons .el-button { height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #fff; }
+    .utility-buttons .filter-btn { background-color: #9B59B6; }
+    .utility-buttons .export-btn { background-color: #F1C40F; }
+    .selection-bar { background: #fff; padding: 10px; margin-bottom: 10px; border-radius: 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .table-section { background: #fff; padding: 20px; border-radius: 4px; margin-bottom: 10px; }
+    .summary-section { background: #fff; padding: 10px; border-radius: 4px; }
+    .el-button { padding: 0px 12px; font-size: 12px; height: 28px; display: flex; align-items: center; justify-content: center; min-width: 80px; }
+    .el-table { font-size: 12px; }
+    .el-table th, .el-table td { padding: 6px 0; }
+  </style>
+</head>
+<body>
+  <div id="app" class="container">
+    <div class="sidebar">
+      <el-menu :default-active="reportType" @select="handleMenuSelect">
+        <el-menu-item index="supplier">供应商对账单</el-menu-item>
+        <el-menu-item index="customer">客户报表</el-menu-item>
+      </el-menu>
+    </div>
+    <div class="content">
+      <div class="operation-bar">
+        <div class="utility-buttons">
+          <el-button type="default" size="small" icon="el-icon-search" class="filter-btn" @click="fetchData">筛选</el-button>
+          <el-button type="default" size="small" icon="el-icon-download" class="export-btn" @click="exportData">导出</el-button>
+        </div>
+      </div>
+      <div class="selection-bar">
+        <el-select v-if="reportType === 'supplier'" v-model="filter.supplier_id" placeholder="请选择供应商" style="width: 200px;" @change="fetchData">
+          <el-option v-for="supplier in suppliers" :key="supplier.id" :label="supplier.short_name" :value="supplier.id"></el-option>
+        </el-select>
+        <el-select v-if="reportType === 'customer'" v-model="filter.customer_id" placeholder="请选择客户" style="width: 200px;" @change="fetchData">
+          <el-option v-for="customer in customers" :key="customer.id" :label="customer.short_name" :value="customer.id"></el-option>
+        </el-select>
+        <el-date-picker
+          v-model="filter.dateRange"
+          type="daterange"
+          range-separator="至"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          format="yyyy-MM-dd"
+          value-format="yyyy-MM-dd"
+          @change="fetchData"
+          style="width: 300px;"
+        ></el-date-picker>
+      </div>
+      <div class="table-section" v-if="reportType === 'supplier' && supplier">
+        <h3>供应商: {{ supplier.short_name }}</h3>
+        <el-table :data="statementList" border style="width: 100%;">
+          <el-table-column prop="order_number" label="入库单号" width="150"></el-table-column>
+          <el-table-column prop="date" label="日期" width="120"></el-table-column>
+          <el-table-column prop="product_name" label="产品名称" width="200"></el-table-column>
+          <el-table-column prop="gold_weight" label="金重 (g)" width="100"></el-table-column>
+          <el-table-column prop="labor_cost" label="工费 (元/g)" width="100"></el-table-column>
+          <el-table-column prop="extra_fee" label="附加费 (元)" width="100"></el-table-column>
+          <el-table-column prop="inlay_count" label="镶嵌位数" width="100"></el-table-column>
+          <el-table-column prop="inlay_labor_cost" label="镶嵌工费 (元)" width="100"></el-table-column>
+          <el-table-column prop="stone_weight" label="石重 (ct)" width="100"></el-table-column>
+          <el-table-column prop="stone_price" label="石价 (元/ct)" width="100"></el-table-column>
+          <el-table-column prop="total_cost" label="总工费 (元)" width="100"></el-table-column>
+        </el-table>
+      </div>
+      <div class="table-section" v-if="reportType === 'customer' && customerReport.length > 0">
+        <h3>客户报表</h3>
+        <el-table :data="customerReport" border style="width: 100%;">
+          <el-table-column prop="index" label="序号" width="60"></el-table-column>
+          <el-table-column prop="order_number" label="出库单号" width="150"></el-table-column>
+          <el-table-column prop="product_name" label="产品名称" width="150"></el-table-column>
+          <el-table-column prop="weight" label="金重 (g)" width="100"></el-table-column>
+          <el-table-column prop="pure_weight" label="净金重 (g)" width="100"></el-table-column>
+          <el-table-column prop="quantity" label="件数" width="80"></el-table-column>
+          <el-table-column prop="labor_cost" label="工费 (元)" width="100"></el-table-column>
+          <el-table-column prop="inlay_fee" label="珐琅附加费 (元)" width="120"></el-table-column>
+          <el-table-column prop="inlay_count" label="镶嵌位" width="80"></el-table-column>
+          <el-table-column prop="inlay_labor_cost" label="镶嵌工费 (元)" width="120"></el-table-column>
+          <el-table-column prop="stone_weight" label="石重 (ct)" width="100"></el-table-column>
+          <el-table-column prop="stone_price" label="石价 (元/ct)" width="100"></el-table-column>
+          <el-table-column prop="total_cost" label="总费用 (元)" width="120"></el-table-column>
+        </el-table>
+      </div>
+      <div class="summary-section" v-if="reportType === 'supplier' && flowRecords.length > 0">
+        <h4>流水账</h4>
+        <el-table :data="runningSummary" border style="width: 100%; margin-top: 10px;">
+          <el-table-column prop="order_number" label="入库单号" width="150"></el-table-column>
+          <el-table-column prop="date" label="日期" width="120"></el-table-column>
+          <el-table-column prop="type" label="类型" width="120"></el-table-column>
+          <el-table-column prop="gold_weight" label="金重 (g)" width="100"></el-table-column>
+          <el-table-column prop="total_cost" label="工费 (元)" width="100"></el-table-column>
+          <el-table-column prop="running_gold_weight" label="累积总金重 (g)" width="150"></el-table-column>
+          <el-table-column prop="running_total_cost" label="累积总工费 (元)" width="150"></el-table-column>
+        </el-table>
+        <el-row :gutter="20" style="margin-top: 10px;">
+          <el-col :span="6">累积总金重: {{ summary.total_gold_weight.toFixed(3) }} g</el-col>
+          <el-col :span="6">累积总工费: {{ summary.total_cost.toFixed(2) }} 元</el-col>
+          <el-col :span="6">记录数: {{ flowRecords.length }}</el-col>
+        </el-row>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    new Vue({
+      el: '#app',
+      data() {
+        return {
+          reportType: 'supplier', // 默认显示供应商对账单
+          suppliers: [],
+          customers: [],
+          supplier: null,
+          statementList: [],
+          flowRecords: [],
+          runningSummary: [],
+          customerReport: [],
+          filter: {
+            supplier_id: '',
+            customer_id: '',
+            dateRange: [],
+          },
+          summary: {
+            total_gold_weight: 0,
+            total_cost: 0,
+          },
+        };
+      },
+      methods: {
+        fetchSuppliers() {
+          axios.get('/api/suppliers', { params: { page: 1, size: 999 } })
+            .then(response => {
+              this.suppliers = response.data.data || [];
+            })
+            .catch(error => console.error('Fetch suppliers error:', error));
+        },
+        fetchCustomers() {
+          axios.get('/api/customers', { params: { page: 1, size: 999 } })
+            .then(response => {
+              this.customers = response.data.data || [];
+            })
+            .catch(error => console.error('Fetch customers error:', error));
+        },
+        handleMenuSelect(type) {
+          this.reportType = type;
+          this.filter.supplier_id = '';
+          this.filter.customer_id = '';
+          this.supplier = null;
+          this.statementList = [];
+          this.flowRecords = [];
+          this.runningSummary = [];
+          this.customerReport = [];
+          this.summary = { total_gold_weight: 0, total_cost: 0 };
+          this.fetchData();
+        },
+        fetchData() {
+          const params = {
+            start_date: this.filter.dateRange && this.filter.dateRange[0] ? this.filter.dateRange[0] : null,
+            end_date: this.filter.dateRange && this.filter.dateRange[1] ? this.filter.dateRange[1] : null,
+          };
+
+          if (this.reportType === 'supplier') {
+            if (!this.filter.supplier_id) {
+              this.$message.error('请选择供应商');
+              return;
+            }
+            params.supplier_id = this.filter.supplier_id;
+            axios.get('/api/supplierStatement', { params })
+              .then(response => {
+                this.supplier = response.data.supplier;
+                this.statementList = response.data.details.map(detail => ({
+                  order_number: detail.order_number,
+                  date: this.formatDate(new Date(detail.date), 'yyyy-MM-dd'),
+                  product_name: detail.product_name,
+                  gold_weight: detail.gold_weight,
+                  labor_cost: detail.labor_cost,
+                  extra_fee: detail.extra_fee,
+                  inlay_count: detail.inlay_count,
+                  inlay_labor_cost: detail.inlay_labor_cost,
+                  stone_weight: detail.stone_weight,
+                  stone_price: detail.stone_price,
+                  total_cost: detail.total_cost,
+                }));
+                this.flowRecords = response.data.flowRecords.map(record => ({
+                  type: record.type,
+                  order_number: record.order_number,
+                  date: this.formatDate(new Date(record.date), 'yyyy-MM-dd'),
+                  gold_weight: record.gold_weight,
+                  total_cost: record.total_cost,
+                }));
+                this.customerReport = [];
+                this.calculateSummary();
+                this.calculateRunningSummary();
+              })
+              .catch(error => {
+                console.error('Fetch supplier statement error:', error);
+                this.$message.error('获取供应商对账单失败');
+              });
+          } else if (this.reportType === 'customer') {
+            params.customer_id = this.filter.customer_id || ''; // 留空表示所有客户
+            axios.get('/api/customerReport', { params })
+              .then(response => {
+                this.supplier = null;
+                this.statementList = [];
+                this.flowRecords = [];
+                this.runningSummary = [];
+                this.customerReport = response.data.data.map(item => ({
+                  index: item.index,
+                  order_number: item.order_number,
+                  product_name: item.product_name,
+                  weight: item.weight,
+                  pure_weight: item.pure_weight,
+                  quantity: item.quantity,
+                  labor_cost: item.labor_cost,
+                  inlay_fee: item.inlay_fee,
+                  inlay_count: item.inlay_count,
+                  inlay_labor_cost: item.inlay_labor_cost,
+                  stone_weight: item.stone_weight,
+                  stone_price: item.stone_price,
+                  total_cost: item.total_cost,
+                }));
+              })
+              .catch(error => {
+                console.error('Fetch customer report error:', error);
+                this.$message.error('获取客户报表失败：' + (error.response?.data?.error || error.message));
+              });
+          }
+        },
+        calculateSummary() {
+          this.summary.total_gold_weight = Number(this.flowRecords.reduce((sum, item) => sum + parseFloat(item.gold_weight), 0).toFixed(2));
+          this.summary.total_cost = Number(this.flowRecords.reduce((sum, item) => sum + parseFloat(item.total_cost), 0).toFixed(2));
+        },
+        calculateRunningSummary() {
+          let runningGoldWeight = 0, runningTotalCost = 0;
+          this.runningSummary = this.flowRecords.map(item => {
+            runningGoldWeight += parseFloat(item.gold_weight);
+            runningTotalCost += parseFloat(item.total_cost);
+            return {
+              type: item.type,
+              order_number: item.order_number,
+              date: item.date,
+              gold_weight: Number(item.gold_weight).toFixed(2),
+              total_cost: Number(item.total_cost).toFixed(2),
+              running_gold_weight: Number(runningGoldWeight).toFixed(2),
+              running_total_cost: Number(runningTotalCost).toFixed(2),
+            };
+          });
+        },
+        exportData() {
+          if (this.reportType === 'supplier' && this.flowRecords.length === 0) {
+            this.$message.warning('无供应商数据可导出');
+            return;
+          }
+          if (this.reportType === 'customer' && this.customerReport.length === 0) {
+            this.$message.warning('无客户数据可导出');
+            return;
+          }
+
+          if (this.reportType === 'supplier') {
+            const data = [
+              ['供应商对账单'],
+              ['供应商:', this.supplier.short_name, '联系人:', this.supplier.contact, '电话:', this.supplier.phone],
+              [],
+              ['入库单号', '日期', '产品名称', '金重 (g)', '工费 (元/g)', '附加费 (元)', '镶嵌位数', '镶嵌工费 (元)', '石重 (ct)', '石价 (元/ct)', '总工费 (元)'],
+              ...this.statementList.map(item => [
+                item.order_number,
+                item.date,
+                item.product_name,
+                item.gold_weight,
+                item.labor_cost,
+                item.extra_fee,
+                item.inlay_count,
+                item.inlay_labor_cost,
+                item.stone_weight,
+                item.stone_price,
+                item.total_cost,
+              ]),
+              [],
+              ['流水账'],
+              ['入库单号', '日期', '类型', '金重 (g)', '工费 (元)', '累积总金重 (g)', '累积总工费 (元)'],
+              ...this.runningSummary.map(item => [
+                item.order_number,
+                item.date,
+                item.type,
+                item.gold_weight,
+                item.total_cost,
+                item.running_gold_weight,
+                item.running_total_cost,
+              ]),
+              [],
+              ['累积总金重:', this.summary.total_gold_weight.toFixed(3), '累积总工费:', this.summary.total_cost.toFixed(2)],
+            ];
+            const worksheet = XLSX.utils.aoa_to_sheet(data);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, '供应商对账单');
+            const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `供应商对账单_${this.supplier.short_name}_${this.formatDate(new Date(), 'yyyyMMdd')}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+          } else if (this.reportType === 'customer') {
+            const data = [
+              ['客户报表'],
+              ['筛选条件:', this.filter.customer_id ? `客户: ${this.customers.find(c => c.id === this.filter.customer_id)?.short_name}` : '所有客户'],
+              [],
+              ['序号', '出库单号', '产品名称', '金重 (g)', '净金重 (g)', '件数', '工费 (元)', '珐琅附加费 (元)', '镶嵌位', '镶嵌工费 (元)', '石重 (ct)', '石价 (元/ct)', '总费用 (元)'],
+              ...this.customerReport.map(item => [
+                item.index,
+                item.order_number,
+                item.product_name,
+                item.weight,
+                item.pure_weight,
+                item.quantity,
+                item.labor_cost,
+                item.inlay_fee,
+                item.inlay_count,
+                item.inlay_labor_cost,
+                item.stone_weight,
+                item.stone_price,
+                item.total_cost,
+              ]),
+            ];
+            const worksheet = XLSX.utils.aoa_to_sheet(data);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, '客户报表');
+            const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `客户报表_${this.formatDate(new Date(), 'yyyyMMdd')}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+          }
+        },
+        formatDate(date, formatStr) {
+          const pad = (num) => String(num).padStart(2, '0');
+          const year = date.getFullYear();
+          const month = pad(date.getMonth() + 1);
+          const day = pad(date.getDate());
+          const hours = pad(date.getHours());
+          const minutes = pad(date.getMinutes());
+          const seconds = pad(date.getSeconds());
+          if (formatStr === 'yyyyMMdd') return `${year}${month}${day}`;
+          if (formatStr === 'yyyy-MM-dd HH:mm:ss') return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+          return `${year}-${month}-${day}`;
+        },
+      },
+      mounted() {
+        this.fetchSuppliers();
+        this.fetchCustomers();
+        this.fetchData();
+      },
+    });
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</body>
+</html>

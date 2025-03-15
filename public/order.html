@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>订单跟踪</title>
+  <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+  <script src="https://unpkg.com/vue@2.6.14/dist/vue.min.js"></script>
+  <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { width: 100%; height: 100%; font-family: Arial, sans-serif; }
+    .wrapper { width: 100%; height: 100vh; display: flex; flex-direction: column; }
+    .header { height: 60px; background: #409EFF; }
+    .header .logo { float: left; padding: 10px 20px; }
+    .header .logo img { width: 120px; height: auto; }
+    .header .user-info { float: right; padding: 15px 20px; }
+    .header .user-info img { width: 30px; height: 30px; border-radius: 50%; vertical-align: middle; margin-right: 10px; }
+    .main-content { flex: 1; display: flex; overflow: hidden; }
+    .sidebar { width: 200px; }
+    .content-box { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .content { flex: 1; padding: 10px; overflow-y: auto; background: #f0f0f0; }
+    .operation-bar {
+      background: #fff;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .pagination-buttons img {
+      width: 30px;
+      height: 30px;
+      margin: 0 5px;
+      cursor: pointer;
+    }
+    .pagination-buttons img.gray { opacity: 0.5; cursor: not-allowed; }
+    .el-button {
+      padding: 0px 12px;
+      font-size: 12px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 80px; /* 设置最小宽度，确保按钮内容不挤压 */
+    }
+    .utility-buttons {
+      display: flex;
+      gap: 2px; /* 添加按钮之间的间距 */
+    }
+    .utility-buttons .el-button {
+      color: #fff;
+      border-color: #dcdcdc;
+    }
+    .utility-buttons .filter-btn {
+      background-color: #9B59B6;
+    }
+    .utility-buttons .import-btn {
+      background-color: #1ABC9C;
+    }
+    .utility-buttons .export-btn {
+      background-color: #F1C40F;
+    }
+    .utility-buttons .el-button:hover {
+      opacity: 0.9;
+    }
+    .action-buttons {
+      display: flex;
+      flex-direction: row-reverse;
+    }
+    .action-buttons .el-button {
+      margin-left: 10px;
+      color: #fff;
+      border-color: transparent;
+    }
+    .action-buttons .add-btn {
+      background-color: #409EFF;
+    }
+    .action-buttons .edit-btn {
+      background-color: #E6A23C;
+    }
+    .action-buttons .delete-btn {
+      background-color: #F56C6C;
+    }
+    .action-buttons .save-btn {
+      background-color: #67C23A;
+    }
+    .action-buttons .withdraw-btn {
+      background-color: #E91E63;
+    }
+    .action-buttons .print-btn {
+      background-color: #7F8C8D;
+    }
+    .action-buttons .el-button:hover {
+      opacity: 0.9;
+    }
+    .form-section { background: #fff; padding: 20px; border-radius: 4px; margin-bottom: 10px; }
+    .table-section { background: #fff; padding: 20px; border-radius: 4px; }
+    .warning-row { background: #ffcccc; }
+    @media (max-width: 1366px) {
+      .el-col { width: 50% !important; }
+      .el-col:nth-child(3n) { width: 100% !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="wrapper">
+    <div class="main-content">
+      <div class="sidebar">
+        <el-menu :default-active="activeSidebar" class="sidebar-menu">
+          <el-menu-item index="1" @click="activeTab = 'pending'">订购</el-menu-item>
+          <el-menu-item index="2" @click="activeTab = 'in_production'">生产中</el-menu-item>
+          <el-menu-item index="3" @click="activeTab = 'completed'">已完成</el-menu-item>
+        </el-menu>
+      </div>
+      <div class="content-box">
+        <el-tabs v-model="activeTab" type="card">
+          <el-tab-pane label="订购" name="pending">
+            <div class="content">
+              <div class="operation-bar">
+                <div style="display: flex; align-items: center;">
+                  <div class="pagination-buttons">
+                    <img src="material/Page 1.png" alt="第一页" :class="{ gray: currentPage === 1 }" @click="goToFirstPage">
+                    <img src="material/Previous Page.png" alt="上一页" :class="{ gray: currentPage === 1 }" @click="goToPreviousPage">
+                    <img src="material/Next Page.png" alt="下一页" :class="{ gray: currentPage === totalPages }" @click="goToNextPage">
+                    <img src="material/Last Page.png" alt="最后一页" :class="{ gray: currentPage === totalPages }" @click="goToLastPage">
+                  </div>
+                  <div class="utility-buttons">
+                    <el-button type="default" size="small" icon="el-icon-search" class="filter-btn" @click="filter">筛选</el-button>
+                    <el-button type="default" size="small" icon="el-icon-upload" class="import-btn" @click="importData">导入</el-button>
+                    <el-button type="default" size="small" icon="el-icon-download" class="export-btn" @click="exportData">导出</el-button>
+                  </div>
+                </div>
+                <div class="action-buttons">
+                  <el-button type="default" size="small" icon="el-icon-printer" class="print-btn" @click="print">打印</el-button>
+                  <el-button type="default" size="small" class="withdraw-btn" @click="withdraw">撤回</el-button>
+                  <el-button type="default" size="small" class="save-btn" @click="saveOrder">保存</el-button>
+                  <el-button type="default" size="small" class="delete-btn" @click="deleteOrder">删除</el-button>
+                  <el-button type="default" size="small" class="edit-btn" @click="editOrder">修改</el-button>
+                  <el-button type="default" size="small" class="add-btn" @click="addOrder">新建</el-button>
+                </div>
+              </div>
+              <div class="form-section" v-if="showForm">
+                <el-form :model="orderForm" :rules="orderRules" ref="orderForm" label-width="100px">
+                  <el-row :gutter="20">
+                    <el-col :span="8"><el-form-item label="订购单号" prop="order_no"><el-input v-model="orderForm.order_no" disabled></el-input></el-form-item></el-col>
+                    <el-col :span="8"><el-form-item label="日期" prop="date"><el-date-picker v-model="orderForm.date" type="date" placeholder="选择日期"></el-date-picker></el-form-item></el-col>
+                    <el-col :span="8"><el-form-item label="客户" prop="customer_id"><el-select v-model="orderForm.customer_id"><el-option v-for="customer in customers" :key="customer.id" :label="customer.short_name" :value="customer.id"></el-option></el-select></el-form-item></el-col>
+                  </el-row>
+                  <el-row :gutter="20">
+                    <el-col :span="8"><el-form-item label="产品名称" prop="product_name"><el-input v-model="orderForm.product_name"></el-input></el-form-item></el-col>
+                    <el-col :span="8"><el-form-item label="预定克重(g)" prop="estimated_weight"><el-input v-model.number="orderForm.estimated_weight"></el-input></el-form-item></el-col>
+                    <el-col :span="8"><el-form-item label="预定件数" prop="estimated_quantity"><el-input v-model.number="orderForm.estimated_quantity"></el-input></el-form-item></el-col>
+                  </el-row>
+                  <el-row :gutter="20">
+                    <el-col :span="8"><el-form-item label="工费(元)" prop="labor_cost"><el-input v-model.number="orderForm.labor_cost"></el-input></el-form-item></el-col>
+                    <el-col :span="8"><el-form-item label="附加费(元)" prop="extra_fee"><el-input v-model.number="orderForm.extra_fee"></el-input></el-form-item></el-col>
+                    <el-col :span="8"><el-form-item label="镶嵌数/位" prop="inlay_count"><el-input v-model.number="orderForm.inlay_count"></el-input></el-form-item></el-col>
+                  </el-row>
+                  <el-row :gutter="20">
+                    <el-col :span="8"><el-form-item label="镶嵌工费(元)" prop="inlay_labor_cost"><el-input v-model.number="orderForm.inlay_labor_cost"></el-input></el-form-item></el-col>
+                    <el-col :span="8"><el-form-item label="石重(ct)" prop="stone_weight"><el-input v-model.number="orderForm.stone_weight"></el-input></el-form-item></el-col>
+                    <el-col :span="8"><el-form-item label="石价(元/ct)" prop="stone_price"><el-input v-model.number="orderForm.stone_price"></el-input></el-form-item></el-col>
+                  </el-row>
+                  <el-row :gutter="20">
+                    <el-col :span="8"><el-form-item label="预警周期(天)" prop="warning_period"><el-input v-model.number="orderForm.warning_period"></el-input></el-form-item></el-col>
+                    <el-col :span="8"><el-form-item label="状态" prop="status"><el-select v-model="orderForm.status"><el-option label="订购" value="pending"></el-option><el-option label="生产中" value="in_production"></el-option><el-option label="已完成" value="completed"></el-option></el-select></el-form-item></el-col>
+                  </el-row>
+                </el-form>
+              </div>
+              <div class="table-section" v-else>
+                <el-table :data="pendingOrders" border style="width: 100%;" :row-class-name="rowClassName" @selection-change="handleSelectionChange">
+                  <el-table-column type="selection" width="55"></el-table-column>
+                  <el-table-column prop="order_no" label="订购单号"></el-table-column>
+                  <el-table-column prop="date" label="日期"></el-table-column>
+                  <el-table-column prop="customer_id" label="客户"></el-table-column>
+                  <el-table-column prop="product_name" label="产品名称"></el-table-column>
+                  <el-table-column prop="estimated_weight" label="预定克重(g)"></el-table-column>
+                  <el-table-column prop="estimated_quantity" label="预定件数"></el-table-column>
+                  <el-table-column prop="warning_period" label="预警周期(天)"></el-table-column>
+                </el-table>
+              </div>
+            </div>
+          </el-tab-pane>
+          <el-tab-pane label="生产中" name="in_production">
+            <div class="content">
+              <div class="operation-bar">
+                <div style="display: flex; align-items: center;">
+                  <div class="pagination-buttons">
+                    <img src="material/Page 1.png" alt="第一页" :class="{ gray: currentPage === 1 }" @click="goToFirstPage">
+                    <img src="material/Previous Page.png" alt="上一页" :class="{ gray: currentPage === 1 }" @click="goToPreviousPage">
+                    <img src="material/Next Page.png" alt="下一页" :class="{ gray: currentPage === totalPages }" @click="goToNextPage">
+                    <img src="material/Last Page.png" alt="最后一页" :class="{ gray: currentPage === totalPages }" @click="goToLastPage">
+                  </div>
+                  <div class="utility-buttons">
+                    <el-button type="default" size="small" icon="el-icon-search" class="filter-btn" @click="filter">筛选</el-button>
+                    <el-button type="default" size="small" icon="el-icon-upload" class="import-btn" @click="importData">导入</el-button>
+                    <el-button type="default" size="small" icon="el-icon-download" class="export-btn" @click="exportData">导出</el-button>
+                  </div>
+                </div>
+                <div class="action-buttons">
+                  <el-button type="default" size="small" icon="el-icon-printer" class="print-btn" @click="print">打印</el-button>
+                  <el-button type="default" size="small" class="withdraw-btn" @click="withdraw">撤回</el-button>
+                  <el-button type="default" size="small" class="save-btn" @click="saveOrder">保存</el-button>
+                  <el-button type="default" size="small" class="delete-btn" @click="deleteOrder">删除</el-button>
+                  <el-button type="default" size="small" class="edit-btn" @click="editOrder">修改</el-button>
+                  <el-button type="default" size="small" class="add-btn" @click="addOrder">新建</el-button>
+                </div>
+              </div>
+              <div class="table-section">
+                <el-table :data="inProductionOrders" border style="width: 100%;" :row-class-name="rowClassName" @selection-change="handleSelectionChange">
+                  <el-table-column type="selection" width="55"></el-table-column>
+                  <el-table-column prop="order_no" label="订购单号"></el-table-column>
+                  <el-table-column prop="date" label="日期"></el-table-column>
+                  <el-table-column prop="customer_id" label="客户"></el-table-column>
+                  <el-table-column prop="product_name" label="产品名称"></el-table-column>
+                  <el-table-column prop="estimated_weight" label="预定克重(g)"></el-table-column>
+                  <el-table-column prop="estimated_quantity" label="预定件数"></el-table-column>
+                  <el-table-column prop="warning_period" label="预警周期(天)"></el-table-column>
+                </el-table>
+              </div>
+            </div>
+          </el-tab-pane>
+          <el-tab-pane label="已完成" name="completed">
+            <div class="content">
+              <div class="operation-bar">
+                <div style="display: flex; align-items: center;">
+                  <div class="pagination-buttons">
+                    <img src="material/Page 1.png" alt="第一页" :class="{ gray: currentPage === 1 }" @click="goToFirstPage">
+                    <img src="material/Previous Page.png" alt="上一页" :class="{ gray: currentPage === 1 }" @click="goToPreviousPage">
+                    <img src="material/Next Page.png" alt="下一页" :class="{ gray: currentPage === totalPages }" @click="goToNextPage">
+                    <img src="material/Last Page.png" alt="最后一页" :class="{ gray: currentPage === totalPages }" @click="goToLastPage">
+                  </div>
+                  <div class="utility-buttons">
+                    <el-button type="default" size="small" icon="el-icon-search" class="filter-btn" @click="filter">筛选</el-button>
+                    <el-button type="default" size="small" icon="el-icon-upload" class="import-btn" @click="importData">导入</el-button>
+                    <el-button type="default" size="small" icon="el-icon-download" class="export-btn" @click="exportData">导出</el-button>
+                  </div>
+                </div>
+                <div class="action-buttons">
+                  <el-button type="default" size="small" icon="el-icon-printer" class="print-btn" @click="print">打印</el-button>
+                  <el-button type="default" size="small" class="withdraw-btn" @click="withdraw">撤回</el-button>
+                  <el-button type="default" size="small" class="save-btn" @click="saveOrder">保存</el-button>
+                  <el-button type="default" size="small" class="delete-btn" @click="deleteOrder">删除</el-button>
+                  <el-button type="default" size="small" class="edit-btn" @click="editOrder">修改</el-button>
+                  <el-button type="default" size="small" class="add-btn" @click="addOrder">新建</el-button>
+                </div>
+              </div>
+              <div class="table-section">
+                <el-table :data="completedOrders" border style="width: 100%;" @selection-change="handleSelectionChange">
+                  <el-table-column type="selection" width="55"></el-table-column>
+                  <el-table-column prop="order_no" label="订购单号"></el-table-column>
+                  <el-table-column prop="date" label="日期"></el-table-column>
+                  <el-table-column prop="customer_id" label="客户"></el-table-column>
+                  <el-table-column prop="product_name" label="产品名称"></el-table-column>
+                  <el-table-column prop="estimated_weight" label="预定克重(g)"></el-table-column>
+                  <el-table-column prop="estimated_quantity" label="预定件数"></el-table-column>
+                  <el-table-column prop="warning_period" label="预警周期(天)"></el-table-column>
+                </el-table>
+              </div>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    new Vue({
+      el: '#app',
+      data() {
+        return {
+          activeMenu: '1',
+          activeSidebar: '1',
+          activeTab: 'pending',
+          currentPage: 1,
+          pageSize: 10,
+          total: 0,
+          totalPages: 1,
+          showForm: false,
+          orderForm: {
+            id: null,
+            order_no: '',
+            date: '',
+            customer_id: null,
+            product_name: '',
+            estimated_weight: 0,
+            estimated_quantity: 0,
+            labor_cost: 0,
+            extra_fee: 0,
+            inlay_count: 0,
+            inlay_labor_cost: 0,
+            stone_weight: 0,
+            stone_price: 0,
+            warning_period: 0,
+            status: 'pending'
+          },
+          orderRules: {
+            date: [{ required: true, message: '请选择日期', trigger: 'change' }],
+            customer_id: [{ required: true, message: '请选择客户', trigger: 'change' }],
+            product_name: [{ required: true, message: '请输入产品名称', trigger: 'blur' }],
+            estimated_weight: [{ required: true, message: '请输入预定克重', trigger: 'blur' }],
+            estimated_quantity: [{ required: true, message: '请输入预定件数', trigger: 'blur' }]
+          },
+          pendingOrders: [],
+          inProductionOrders: [],
+          completedOrders: [],
+          customers: [],
+          selectedRows: []
+        };
+      },
+      methods: {
+        goToFirstPage() {
+          if (this.currentPage !== 1) {
+            this.currentPage = 1;
+            this.fetchOrders();
+          }
+        },
+        goToPreviousPage() {
+          if (this.currentPage > 1) {
+            this.currentPage--;
+            this.fetchOrders();
+          }
+        },
+        goToNextPage() {
+          if (this.currentPage < this.totalPages) {
+            this.currentPage++;
+            this.fetchOrders();
+          }
+        },
+        goToLastPage() {
+          if (this.currentPage !== this.totalPages) {
+            this.currentPage = this.totalPages;
+            this.fetchOrders();
+          }
+        },
+        filter() { alert('筛选功能'); },
+        importData() { alert('导入功能'); },
+        exportData() { alert('导出功能'); },
+        withdraw() { alert('撤回功能'); },
+        print() { window.print(); },
+        addOrder() {
+          this.showForm = true;
+          this.orderForm = {
+            id: null,
+            order_no: 'ORD' + Date.now(),
+            date: new Date().toISOString().split('T')[0],
+            customer_id: null,
+            product_name: '',
+            estimated_weight: 0,
+            estimated_quantity: 0,
+            labor_cost: 0,
+            extra_fee: 0,
+            inlay_count: 0,
+            inlay_labor_cost: 0,
+            stone_weight: 0,
+            stone_price: 0,
+            warning_period: 0,
+            status: 'pending'
+          };
+        },
+        editOrder() {
+          if (this.selectedRows.length === 0) {
+            alert('请先选择一条记录');
+            return;
+          }
+          this.showForm = true;
+          this.orderForm = { ...this.selectedRows[0] };
+        },
+        deleteOrder() {
+          if (this.selectedRows.length === 0) {
+            alert('请先选择一条记录');
+            return;
+          }
+          if (confirm('确定删除记录?')) {
+            alert('删除成功'); // 模拟删除，后续需后端支持
+            this.fetchOrders();
+          }
+        },
+        saveOrder() {
+          this.$refs['orderForm'].validate((valid) => {
+            if (valid) {
+              const method = this.orderForm.id ? 'put' : 'post';
+              const url = this.orderForm.id ? `/api/orders/${this.orderForm.id}` : '/api/orders';
+              axios[method](url, this.orderForm).then(() => {
+                alert('保存成功');
+                this.showForm = false;
+                this.fetchOrders();
+              }).catch(() => alert('保存失败'));
+            } else {
+              alert('请填写完整信息');
+            }
+          });
+        },
+        fetchOrders() {
+          axios.get('/api/orders', { params: { page: this.currentPage, size: this.pageSize } }).then(response => {
+            const orders = response.data.data;
+            this.pendingOrders = orders.filter(order => order.status === 'pending');
+            this.inProductionOrders = orders.filter(order => order.status === 'in_production');
+            this.completedOrders = orders.filter(order => order.status === 'completed');
+            this.total = response.data.total;
+            this.totalPages = Math.ceil(this.total / this.pageSize);
+          }).catch(() => alert('数据加载失败'));
+        },
+        rowClassName({ row }) {
+          const now = new Date();
+          const startDate = new Date(row.date);
+          const daysDiff = (now - startDate) / (1000 * 60 * 60 * 24);
+          if (row.status === 'pending' || (row.status === 'in_production' && daysDiff > row.warning_period)) {
+            return 'warning-row';
+          }
+          return '';
+        },
+        handleSelectionChange(val) {
+          this.selectedRows = val;
+        }
+      },
+      watch: {
+        activeTab() {
+          this.showForm = false;
+          this.currentPage = 1;
+          this.fetchOrders();
+        }
+      },
+      mounted() {
+        axios.get('/api/customers').then(response => this.customers = response.data);
+        this.fetchOrders();
+      }
+    });
+  </script>
+</body>
+</html>
