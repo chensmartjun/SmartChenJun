@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>库存管理</title>
+  <link href="https://cdn.jsdelivr.net/npm/element-ui@2.15.6/lib/theme-chalk/index.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/element-ui@2.15.6/lib/index.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios@0.21.1/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { width: 100%; height: 100%; font-family: Arial, sans-serif; }
+    .content { padding: 10px; overflow-y: auto; background: #f0f0f0; }
+    .operation-bar {
+      background: #fff;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .pagination-buttons img {
+      width: 30px;
+      height: 30px;
+      margin: 0 5px;
+      cursor: pointer;
+    }
+    .pagination-buttons img.gray { opacity: 0.5; cursor: not-allowed; }
+    .utility-buttons { display: flex; gap: 2px; }
+    .utility-buttons .el-button, .action-buttons .el-button { height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+    .utility-buttons .el-button { color: #fff; border-color: #dcdcdc; }
+    .utility-buttons .filter-btn { background-color: #9B59B6; }
+    .utility-buttons .export-btn { background-color: #F1C40F; }
+    .action-buttons { display: flex; flex-direction: row-reverse; gap: 2px; }
+    .action-buttons .el-button { color: #fff; border-color: transparent; }
+    .action-buttons .edit-btn { background-color: #E6A23C; }
+    .action-buttons .delete-btn { background-color: #F56C6C; }
+    .action-buttons .save-btn { background-color: #67C23A; }
+    .utility-buttons .el-button:hover, .action-buttons .el-button:hover { opacity: 0.9; }
+    .selection-bar { background: #fff; padding: 10px; margin-bottom: 10px; border-radius: 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .el-button { padding: 0px 12px; font-size: 12px; height: 28px; display: flex; align-items: center; justify-content: center; min-width: 80px; }
+    .table-section { background: #fff; padding: 20px; border-radius: 4px; margin-bottom: 10px; }
+    .stats-section { background: #fff; padding: 20px; border-radius: 4px; margin-bottom: 10px; }
+    .chart-section { background: #fff; padding: 20px; border-radius: 4px; height: 400px; }
+    .el-input input[type="number"]::-webkit-inner-spin-button,
+    .el-input input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .el-input input[type="number"] { -moz-appearance: textfield; }
+  </style>
+</head>
+<body>
+  <div id="app" class="content">
+    <div class="operation-bar">
+      <div style="display: flex; align-items: center;">
+        <el-pagination
+          background
+          layout="prev, pager, next, jumper, ->, total"
+          :current-page.sync="currentPage"
+          :page-size="pageSize"
+          :total="total"
+          @current-change="fetchInventory"
+          style="margin-right: 10px;"
+        ></el-pagination>
+        <div class="utility-buttons">
+          <el-button type="default" size="small" icon="el-icon-search" class="filter-btn" @click="fetchInventory">筛选</el-button>
+          <el-button type="default" size="small" icon="el-icon-download" class="export-btn" @click="exportData">导出</el-button>
+        </div>
+      </div>
+      <div class="action-buttons">
+        <el-button type="default" size="small" class="save-btn" @click="saveInventory" :disabled="selectedRows.length !== 1">保存</el-button>
+        <el-button type="default" size="small" class="delete-btn" @click="deleteInventory" :disabled="selectedRows.length === 0">删除</el-button>
+        <el-button type="default" size="small" class="edit-btn" @click="editInventory" :disabled="selectedRows.length !== 1">修改</el-button>
+      </div>
+    </div>
+    <div class="selection-bar">
+      <el-input v-model="filter.barcode" placeholder="条形码" style="width: 200px;" @change="fetchInventory"></el-input>
+      <el-input v-model="filter.order_number" placeholder="入库单号" style="width: 200px;" @change="fetchInventory"></el-input>
+      <el-select v-model="filter.parent_category_id" placeholder="父类别" style="width: 200px;" @change="updateSubCategories">
+        <el-option v-for="parent in parentCategories" :key="parent.id" :label="parent.name" :value="parent.id"></el-option>
+      </el-select>
+      <el-select v-model="filter.product_code" placeholder="子类别" style="width: 200px;" @change="fetchInventory">
+        <el-option v-for="sub in filteredSubCategories" :key="sub.id" :label="sub.name" :value="sub.code || sub.name"></el-option>
+      </el-select>
+      <el-select v-model="filter.counter_id" placeholder="柜台" style="width: 200px;" @change="fetchInventory">
+        <el-option v-for="counter in counters" :key="counter.id" :label="counter.name" :value="counter.id"></el-option>
+      </el-select>
+      <el-date-picker
+        v-model="filter.timeRange"
+        type="datetimerange"
+        range-separator="至"
+        start-placeholder="开始时间"
+        end-placeholder="结束时间"
+        format="yyyy-MM-dd HH:mm:ss"
+        value-format="yyyy-MM-dd HH:mm:ss"
+        @change="fetchInventory"
+        style="width: 300px;"
+      ></el-date-picker>
+    </div>
+    <div class="stats-section">
+      <el-row :gutter="20">
+        <el-col :span="6">总库存数量: {{ totalQuantity }}</el-col>
+        <el-col :span="6">总金重: {{ totalGoldWeight.toFixed(2) }} g</el-col>
+        <el-col :span="6">总工费: {{ totalCost.toFixed(2) }} 元</el-col>
+        <el-col :span="6">零库存类目: {{ zeroStockCategories.length }}</el-col>
+      </el-row>
+    </div>
+    <div class="table-section">
+      <el-table :data="inventoryList" border style="width: 100%;" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="55"></el-table-column>
+        <el-table-column prop="barcode" label="条形码" width="150"></el-table-column>
+        <el-table-column prop="order_number" label="入库单号" width="150"></el-table-column>
+        <el-table-column label="产品类目" width="150">
+          <template slot-scope="scope">{{ getParentCategoryName(scope.row.product_code) }}</template>
+        </el-table-column>
+        <el-table-column prop="product_name" label="产品名称" width="200"></el-table-column>
+        <el-table-column prop="weight_type" label="入库类型" width="100">
+          <template slot-scope="scope">
+            {{ scope.row.weight_type === 'weight' ? '金重' : '净金重' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="weight" label="金重 (g)" width="100">
+          <template slot-scope="scope">
+            <el-input v-if="scope.row.isEditing" v-model="scope.row.weight" type="text" @input="restrictNumberInput(scope.row, 'weight', 2)"></el-input>
+            <span v-else>{{ Number(scope.row.weight).toFixed(2) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="pure_weight" label="净金重 (g)" width="100">
+          <template slot-scope="scope">
+            <el-input v-if="scope.row.isEditing" v-model="scope.row.pure_weight" type="text" @input="restrictNumberInput(scope.row, 'pure_weight', 2)"></el-input>
+            <span v-else>{{ Number(scope.row.pure_weight).toFixed(2) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="quantity" label="数量" width="80">
+          <template slot-scope="scope">
+            <el-input v-if="scope.row.isEditing" v-model="scope.row.quantity" type="text" @input="restrictNumberInput(scope.row, 'quantity', 0)"></el-input>
+            <span v-else>{{ scope.row.quantity }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="labor_cost" label="工费 (元/g)" width="100">
+          <template slot-scope="scope">{{ Number(scope.row.labor_cost).toFixed(2) }}</template>
+        </el-table-column>
+        <el-table-column prop="extra_fee" label="附加费 (元)" width="100">
+          <template slot-scope="scope">{{ Number(scope.row.extra_fee).toFixed(2) }}</template>
+        </el-table-column>
+        <el-table-column prop="inlay_count" label="镶嵌/位" width="100"></el-table-column>
+        <el-table-column prop="inlay_labor_cost" label="镶嵌工费 (元)" width="100">
+          <template slot-scope="scope">{{ Number(scope.row.inlay_labor_cost).toFixed(2) }}</template>
+        </el-table-column>
+        <el-table-column prop="stone_weight" label="石重 (ct)" width="100">
+          <template slot-scope="scope">{{ Number(scope.row.stone_weight).toFixed(2) }}</template>
+        </el-table-column>
+        <el-table-column prop="stone_price" label="石价 (元/ct)" width="100">
+          <template slot-scope="scope">{{ Number(scope.row.stone_price).toFixed(2) }}</template>
+        </el-table-column>
+        <el-table-column prop="total_cost" label="总费用 (元)" width="100">
+          <template slot-scope="scope">{{ Number(scope.row.total_cost).toFixed(2) }}</template>
+        </el-table-column>
+        <el-table-column prop="counter_id" label="柜台" width="150">
+          <template slot-scope="scope">
+            <el-select v-if="scope.row.isEditing" v-model="scope.row.counter_id" placeholder="请选择柜台">
+              <el-option v-for="counter in counters" :key="counter.id" :label="counter.name" :value="counter.id"></el-option>
+            </el-select>
+            <span v-else>{{ getCounterName(scope.row.counter_id) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="scanned_at" label="扫描时间" width="180"></el-table-column>
+      </el-table>
+    </div>
+    <div class="chart-section" id="productChart"></div>
+  </div>
+
+  <script>
+    new Vue({
+      el: '#app',
+      data() {
+        return {
+          counters: [],
+          categories: [],
+          parentCategories: [],
+          filteredSubCategories: [],
+          inventoryList: [],
+          selectedRows: [],
+          filter: {
+            barcode: '',
+            order_number: '',
+            parent_category_id: '',
+            product_code: '',
+            counter_id: '',
+            timeRange: [],
+          },
+          currentPage: 1,
+          pageSize: 10,
+          total: 0,
+          totalQuantity: 0,
+          totalGoldWeight: 0,
+          totalCost: 0,
+          zeroStockCategories: [],
+          productStats: [],
+          chart: null,
+        };
+      },
+      methods: {
+        fetchCounters() {
+          axios.get('/api/counters', { params: { page: 1, size: 999 } })
+            .then(response => this.counters = response.data.data || [])
+            .catch(error => console.error('Fetch counters error:', error));
+        },
+        fetchCategories() {
+          axios.get('/api/categories')
+            .then(response => {
+              this.categories = response.data.data || [];
+              this.parentCategories = this.categories.filter(cat => cat.parent_id === null);
+              this.updateSubCategories();
+            })
+            .catch(error => console.error('Fetch categories error:', error));
+        },
+        fetchInventory() {
+          const params = {
+            page: this.currentPage,
+            size: this.pageSize,
+            barcode: this.filter.barcode,
+            order_number: this.filter.order_number,
+            product_code: this.filter.product_code,
+            counter_id: this.filter.counter_id,
+          };
+          if (this.filter.timeRange && this.filter.timeRange.length === 2) {
+            params.start_time = this.filter.timeRange[0];
+            params.end_time = this.filter.timeRange[1];
+          }
+          axios.get('/api/inventory', { params })
+            .then(response => {
+              this.inventoryList = response.data.data.map(item => ({
+                ...item,
+                isEditing: false,
+                weight: parseFloat(item.weight) || 0,
+                pure_weight: parseFloat(item.pure_weight) || 0,
+                labor_cost: parseFloat(item.labor_cost) || 0,
+                extra_fee: parseFloat(item.extra_fee) || 0,
+                inlay_labor_cost: parseFloat(item.inlay_labor_cost) || 0,
+                stone_weight: parseFloat(item.stone_weight) || 0,
+                stone_price: parseFloat(item.stone_price) || 0,
+                total_cost: parseFloat(item.total_cost) || 0,
+                scanned_at: this.formatDate(new Date(item.scanned_at), 'yyyy-MM-dd HH:mm:ss'),
+              }));
+              this.total = response.data.total || 0;
+              this.calculateStats();
+              this.updateChart();
+            })
+            .catch(error => console.error('Fetch inventory error:', error));
+        },
+        editInventory() {
+          if (this.selectedRows.length === 1) {
+            const index = this.inventoryList.findIndex(item => item.id === this.selectedRows[0].id);
+            this.$set(this.inventoryList[index], 'isEditing', true);
+          }
+        },
+        async saveInventory() {
+          if (this.selectedRows.length === 1) {
+            const item = this.selectedRows[0];
+            try {
+              await axios.put(`/api/inventory/${item.id}`, {
+                quantity: parseInt(item.quantity),
+                weight: parseFloat(item.weight).toFixed(2),
+                pure_weight: parseFloat(item.pure_weight).toFixed(2),
+                counter_id: item.counter_id,
+              });
+              this.$message.success('保存成功');
+              item.isEditing = false;
+              this.fetchInventory();
+            } catch (error) {
+              console.error('Save inventory error:', error);
+              this.$message.error('保存失败: ' + (error.response?.data?.error || error.message));
+            }
+          }
+        },
+        deleteInventory() {
+          if (this.selectedRows.length > 0) {
+            this.$confirm('确定删除选中的库存记录？', '提示', {
+              confirmButtonText: '确定',
+              cancelButtonText: '取消',
+              type: 'warning'
+            }).then(async () => {
+              const promises = this.selectedRows.map(row => axios.delete(`/api/inventory/${row.id}`));
+              try {
+                await Promise.all(promises);
+                this.$message.success('删除成功');
+                this.fetchInventory();
+              } catch (error) {
+                console.error('Delete inventory error:', error);
+                this.$message.error('删除失败: ' + (error.response?.data?.error || error.message));
+              }
+            }).catch(() => {});
+          }
+        },
+        handleSelectionChange(val) {
+          this.selectedRows = val;
+        },
+        getCounterName(counterId) {
+          const counter = this.counters.find(c => c.id === counterId);
+          return counter ? counter.name : '未知柜台';
+        },
+        getParentCategoryName(productCode) {
+          const category = this.categories.find(cat => cat.id === parseInt(productCode) && cat.parent_id === null);
+          return category ? category.name : '未知类目';
+        },
+        updateSubCategories() {
+          if (this.filter.parent_category_id) {
+            this.filteredSubCategories = this.categories.filter(cat => cat.parent_id === this.filter.parent_category_id);
+          } else {
+            this.filteredSubCategories = [];
+          }
+          this.filter.product_code = '';
+          this.fetchInventory();
+        },
+        calculateStats() {
+          this.totalQuantity = this.inventoryList.reduce((sum, item) => sum + parseInt(item.quantity), 0);
+          this.totalGoldWeight = this.inventoryList.reduce((sum, item) => sum + ((parseFloat(item.weight) + parseFloat(item.pure_weight)) * parseInt(item.quantity)), 0);
+          this.totalCost = this.inventoryList.reduce((sum, item) => sum + (parseFloat(item.total_cost) * parseInt(item.quantity)), 0);
+
+          const categoryStock = {};
+          this.inventoryList.forEach(item => {
+            const categoryId = item.product_code;
+            if (!categoryStock[categoryId]) categoryStock[categoryId] = 0;
+            categoryStock[categoryId] += parseInt(item.quantity);
+          });
+          this.zeroStockCategories = Object.keys(categoryStock).filter(id => categoryStock[id] === 0)
+            .map(id => this.getParentCategoryName(id));
+
+          const productNames = [...new Set(this.inventoryList.map(item => item.product_name))];
+          this.productStats = productNames.map(name => {
+            const total = this.inventoryList.filter(item => item.product_name === name)
+              .reduce((sum, item) => sum + parseInt(item.quantity), 0);
+            return { name, value: total };
+          }).filter(stat => stat.value > 0);
+        },
+        updateChart() {
+          if (!this.chart) {
+            this.chart = echarts.init(document.getElementById('productChart'));
+          }
+          const option = {
+            title: { text: '产品名称库存分布', left: 'center' },
+            tooltip: { trigger: 'item', formatter: '{a} <br/>{b}: {c} ({d}%)' },
+            legend: {
+              type: 'scroll',
+              orient: 'vertical',
+              right: 10,
+              top: 20,
+              bottom: 20,
+              data: this.productStats.map(stat => stat.name),
+            },
+            series: [{
+              name: '库存数量',
+              type: 'pie',
+              radius: ['40%', '70%'],
+              center: ['40%', '50%'],
+              data: this.productStats,
+              emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0, 0, 0, 0.5)' } },
+              label: { show: false },
+            }],
+          };
+          this.chart.setOption(option);
+        },
+        exportData() {
+          const data = this.inventoryList.map(item => ({
+            条形码: item.barcode,
+            入库单号: item.order_number,
+            产品类目: this.getParentCategoryName(item.product_code),
+            产品名称: item.product_name,
+            入库类型: item.weight_type === 'weight' ? '金重' : '净金重',
+            金重: Number(item.weight).toFixed(2),
+            净金重: Number(item.pure_weight).toFixed(2),
+            数量: item.quantity,
+            '工费 (元/g)': Number(item.labor_cost).toFixed(2),
+            '附加费 (元)': Number(item.extra_fee).toFixed(2),
+            镶嵌位数: item.inlay_count,
+            '镶嵌工费 (元)': Number(item.inlay_labor_cost).toFixed(2),
+            '石重 (ct)': Number(item.stone_weight).toFixed(2),
+            '石价 (元/ct)': Number(item.stone_price).toFixed(2),
+            '总费用 (元)': Number(item.total_cost).toFixed(2),
+            柜台: this.getCounterName(item.counter_id),
+            扫描时间: item.scanned_at,
+          }));
+          const worksheet = XLSX.utils.json_to_sheet(data);
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, '库存清单');
+          const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+          const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', `库存清单_${this.formatDate(new Date(), 'yyyyMMdd')}.xlsx`);
+          document.body.appendChild(link);
+          link.click();
+        },
+        restrictNumberInput(row, field, decimals) {
+          let value = row[field].toString();
+          value = value.replace(/[^0-9.]/g, '');
+          const parts = value.split('.');
+          if (parts.length > 2) value = parts[0] + '.' + parts.slice(1).join('');
+          if (parts.length > 1 && decimals > 0) {
+            parts[1] = parts[1].slice(0, decimals);
+            value = parts.join('.');
+          } else if (decimals === 0 && parts.length > 1) value = parts[0];
+          row[field] = value;
+        },
+        formatDate(date, formatStr) {
+          const pad = (num) => String(num).padStart(2, '0');
+          const year = date.getFullYear();
+          const month = pad(date.getMonth() + 1);
+          const day = pad(date.getDate());
+          const hours = pad(date.getHours());
+          const minutes = pad(date.getMinutes());
+          const seconds = pad(date.getSeconds());
+          if (formatStr === 'yyyyMMdd') return `${year}${month}${day}`;
+          if (formatStr === 'yyyy-MM-dd HH:mm:ss') return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+          return `${year}-${month}-${day}`;
+        },
+      },
+      mounted() {
+        console.log('Mounted, fetching data...');
+        this.fetchCounters();
+        this.fetchCategories();
+        this.fetchInventory();
+      },
+    });
+  </script>
+  <script src="https://unpkg.com/date-fns@2.30.0/dist/date-fns.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</body>
+</html>
