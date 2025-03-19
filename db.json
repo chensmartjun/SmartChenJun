@@ -991,5 +991,33 @@
       "total_sales": 2000,
       "total_owed": 700
     }
-  ]
+  ],
+  "outboundOrders": [
+    {
+      "id": 1,
+      "order_number": "OUT123",
+      "customer_id": 1,
+      "date": "2025-03-19T10:00:00Z",
+      "items": [
+        {"barcode": "1234567890123", "gold_weight": 10, "labor_cost": 5, "extra_fee": 2, "inlay_count": 1, "inlay_labor_cost": 3, "stone_weight": 0, "stone_price": 0}
+      ],
+      "debt_material": 10,
+      "debt_labor": 20
+    }
+  ],
+  "inboundOrders": [
+    {
+      "id": 1,
+      "order_number": "IN123",
+      "supplier_id": 1,
+      "date": "2025-03-19T10:00:00Z",
+      "items": [
+        {"barcode": "9876543210987", "gold_weight": 15, "labor_cost": 4}
+      ]
+    }
+  ],
+  "customers": [{"id": 1, "name": "客户A"}],
+  "suppliers": [{"id": 1, "name": "供应商A"}],
+  "counters": [{"id": 1, "name": "柜台1"}],
+  "returnsOrders": []
 }
