@@ -20,26 +20,10 @@ const routes = [
   { path: '/labelTemplates', name: 'labelTemplates', component: () => import('../views/SystemSettings/LabelTemplateList.vue') },
   { path: '/login', name: 'login', component: () => import('../views/Login.vue') },
   { path: '/paymentRecords', name: 'paymentRecords', component: () => import('../views/FinancialManagement/PaymentRecordList.vue') },
-  {
-    path: '/material-inventory',
-    name: 'MaterialInventoryList',
-    component: () => import('../views/InventoryManagement/MaterialInventoryList.vue'),
-  },
-  {
-    path: '/supplier-statements',
-    name: 'SupplierStatementList',
-    component: () => import('../views/FinancialManagement/SupplierStatementList.vue'),
-  },
-  {
-    path: '/customer-owed',
-    name: 'CustomerOwedList',
-    component: () => import('../views/FinancialManagement/CustomerOwedList.vue'),
-  },
-  {
-    path: '/profit-statements',
-    name: 'ProfitStatementList',
-    component: () => import('../views/FinancialManagement/ProfitStatementList.vue'),
-  },
+  { path: '/materialInventory', name: 'MaterialInventoryList', component: () => import('../views/InventoryManagement/MaterialInventoryList.vue'),},
+  { path: '/supplierStatement', name: 'SupplierStatementList', component: () => import('../views/FinancialManagement/SupplierStatementList.vue'),},
+  { path: '/customerOwed', name: 'CustomerOwedList', component: () => import('../views/FinancialManagement/CustomerOwedList.vue'),},
+  { path: '/profitStatement', name: 'ProfitStatementList', component: () => import('../views/FinancialManagement/ProfitStatementList.vue'),},
 ];
 
 const router = createRouter({
