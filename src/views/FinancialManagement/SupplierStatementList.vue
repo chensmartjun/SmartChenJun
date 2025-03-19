@@ -3,7 +3,7 @@
     <div class="filter-bar">
       <el-form :inline="true" :model="queryForm" size="small">
         <el-form-item label="供应商">
-          <el-select v-model="queryForm.supplier_id" placeholder="选择供应商" clearable @change="fetchStatements" style="width: 150px;">
+          <el-select v-model="queryForm.supplier_id" placeholder="选择供应商" clearable @change="fetchSupplierStatement" style="width: 150px;">
             <el-option v-for="supplier in suppliers" :key="supplier.id" :label="supplier.name" :value="supplier.id"></el-option>
           </el-select>
         </el-form-item>
@@ -14,27 +14,31 @@
             range-separator="至"
             start-placeholder="开始日期"
             end-placeholder="结束日期"
-            @change="fetchStatements"
+            @change="fetchSupplierStatement"
             style="width: 220px;"
           ></el-date-picker>
         </el-form-item>
       </el-form>
     </div>
-    <el-table :data="statements" border stripe size="small" v-loading="loading" style="margin-top: 10px;" class="custom-table">
-      <el-table-column prop="supplier_name" label="供应商" width="150"></el-table-column>
-      <el-table-column prop="order_number" label="入库单号" width="120"></el-table-column>
+    <el-table :data="supplierStatement" border stripe size="small" v-loading="loading" style="margin-top: 10px;" class="custom-table">
+      <el-table-column prop="order_number" label="单号" width="120"></el-table-column>
+      <el-table-column prop="supplier_id" label="供应商" :formatter="formatSupplier" width="100"></el-table-column>
       <el-table-column prop="date" label="日期" :formatter="dateTimeFormatter" width="180"></el-table-column>
-      <el-table-column prop="amount" label="金额" width="100"></el-table-column>
-      <el-table-column prop="debt" label="欠款" width="100"></el-table-column>
+      <el-table-column prop="amount" label="应付金额(¥)" width="120"></el-table-column>
     </el-table>
     <el-pagination
-      @current-change="fetchStatements"
+      @current-change="fetchSupplierStatement"
       v-model:current-page="page"
       :page-size="size"
       :total="total"
       layout="prev, pager, next, total"
       style="margin-top: 10px;"
     ></el-pagination>
+    <div class="summary" style="margin-top: 10px;">
+      <el-row :gutter="10">
+        <el-col :span="6">总应付金额: {{ totalAmount }} ¥</el-col>
+      </el-row>
+    </div>
   </div>
 </template>
 
@@ -43,7 +47,7 @@ export default {
   name: 'SupplierStatementList',
   data() {
     return {
-      statements: [],
+      supplierStatement: [],
       suppliers: [],
       queryForm: {
         supplier_id: null,
@@ -55,57 +59,55 @@ export default {
       loading: false,
     };
   },
+  computed: {
+    totalAmount() {
+      return this.supplierStatement.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0).toFixed(2);
+    },
+  },
   mounted() {
+    this.fetchSupplierStatement();
     this.fetchSuppliers();
-    this.fetchStatements();
   },
   methods: {
-    async fetchSuppliers() {
-      try {
-        const res = await this.$axios.get('/suppliers');
-        this.suppliers = res.data.filter(supplier => supplier.id !== null) || [];
-      } catch (err) {
-        this.$message.error('加载供应商失败');
-      }
-    },
-    async fetchStatements() {
+    async fetchSupplierStatement() {
       this.loading = true;
       try {
-        const res = await this.$axios.get('/inboundOrders');
-        let orders = res.data || [];
-
-        // 转换为对账单格式
-        let statements = orders.map(order => ({
-          supplier_name: this.suppliers.find(s => s.id === order.supplier_id)?.name || '未知',
-          order_number: order.order_number,
-          date: order.date,
-          amount: order.items.reduce((sum, item) => sum + parseFloat(this.calculateItemTotal(item)), 0).toFixed(2),
-          debt: order.debt_material || 0, // 假设入库单有欠款字段
-        }));
-
-        // 应用过滤
-        if (this.queryForm.supplier_id) {
-          statements = statements.filter(s => s.supplier_id === this.queryForm.supplier_id);
-        }
+        const params = {
+          _page: this.page,
+          _limit: this.size,
+          supplier_id: this.queryForm.supplier_id || undefined,
+        };
         if (this.queryForm.date_range && this.queryForm.date_range.length === 2) {
           const [start, end] = this.queryForm.date_range;
-          statements = statements.filter(s => new Date(s.date) >= start && new Date(s.date) <= end);
+          params.date_gte = start.toISOString().split('T')[0];
+          params.date_lte = end.toISOString().split('T')[0];
         }
-
-        // 分页
-        this.total = statements.length;
-        const startIdx = (this.page - 1) * this.size;
-        this.statements = statements.slice(startIdx, startIdx + this.size);
+        const res = await this.$axios.get('/inboundOrders', { params });
+        this.supplierStatement = (res.data || []).map(item => ({
+          order_number: item.order_number,
+          supplier_id: item.supplier_id,
+          date: item.date,
+          amount: item.items && Array.isArray(item.items) ? item.items.reduce((sum, i) => sum + (i.gold_weight * i.labor_cost || 0), 0) : 0,
+        }));
+        this.total = parseInt(res.headers['x-total-count']) || this.supplierStatement.length;
       } catch (err) {
-        this.$message.error('加载对账单失败');
-        console.error('Fetch statements error:', err);
+        this.$message.error('加载供应商对账单失败');
+        console.error('Fetch supplier statement error:', err);
       } finally {
         this.loading = false;
       }
     },
-    calculateItemTotal(item) {
-      const weight = item.gold_weight || 0;
-      return (weight * (item.labor_cost || 0) + (item.quantity || 0) * (item.extra_fee || 0)).toFixed(2);
+    async fetchSuppliers() {
+      try {
+        const res = await this.$axios.get('/suppliers');
+        this.suppliers = (res.data || []).filter(supplier => supplier.id !== null);
+      } catch (err) {
+        this.$message.error('加载供应商失败');
+      }
+    },
+    formatSupplier(row) {
+      const supplier = this.suppliers.find(s => s.id === row.supplier_id);
+      return supplier ? supplier.name : '';
     },
     dateTimeFormatter(row) {
       return new Date(row.date).toLocaleString();
@@ -126,7 +128,14 @@ export default {
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
+.el-table {
+  font-size: 12px;
+}
 .custom-table {
   margin-bottom: 20px;
+}
+.summary {
+  font-size: 14px;
+  color: #606266;
 }
 </style>

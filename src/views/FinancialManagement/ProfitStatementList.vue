@@ -2,33 +2,40 @@
   <div class="module-container">
     <div class="filter-bar">
       <el-form :inline="true" :model="queryForm" size="small">
-        <el-form-item label="时间范围">
+        <el-form-item label="日期范围">
           <el-date-picker
             v-model="queryForm.date_range"
-            type="monthrange"
+            type="daterange"
             range-separator="至"
-            start-placeholder="开始月份"
-            end-placeholder="结束月份"
-            @change="fetchProfits"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            @change="fetchProfitStatement"
             style="width: 220px;"
           ></el-date-picker>
         </el-form-item>
       </el-form>
     </div>
-    <el-table :data="profits" border stripe size="small" v-loading="loading" style="margin-top: 10px;" class="custom-table">
-      <el-table-column prop="month" label="月份" width="150"></el-table-column>
-      <el-table-column prop="sales" label="销售收入" width="150"></el-table-column>
-      <el-table-column prop="cost" label="成本" width="150"></el-table-column>
-      <el-table-column prop="profit" label="利润" width="150"></el-table-column>
+    <el-table :data="profitStatement" border stripe size="small" v-loading="loading" style="margin-top: 10px;" class="custom-table">
+      <el-table-column prop="date" label="日期" :formatter="dateTimeFormatter" width="180"></el-table-column>
+      <el-table-column prop="revenue" label="收入(¥)" width="120"></el-table-column>
+      <el-table-column prop="cost" label="成本(¥)" width="120"></el-table-column>
+      <el-table-column prop="profit" label="利润(¥)" width="120"></el-table-column>
     </el-table>
     <el-pagination
-      @current-change="fetchProfits"
+      @current-change="fetchProfitStatement"
       v-model:current-page="page"
       :page-size="size"
       :total="total"
       layout="prev, pager, next, total"
       style="margin-top: 10px;"
     ></el-pagination>
+    <div class="summary" style="margin-top: 10px;">
+      <el-row :gutter="10">
+        <el-col :span="6">总收入: {{ totalRevenue }} ¥</el-col>
+        <el-col :span="6">总成本: {{ totalCost }} ¥</el-col>
+        <el-col :span="6">总利润: {{ totalProfit }} ¥</el-col>
+      </el-row>
+    </div>
   </div>
 </template>
 
@@ -37,7 +44,7 @@ export default {
   name: 'ProfitStatementList',
   data() {
     return {
-      profits: [],
+      profitStatement: [],
       queryForm: {
         date_range: null,
       },
@@ -47,71 +54,67 @@ export default {
       loading: false,
     };
   },
+  computed: {
+    totalRevenue() {
+      return this.profitStatement.reduce((sum, item) => sum + (parseFloat(item.revenue) || 0), 0).toFixed(2);
+    },
+    totalCost() {
+      return this.profitStatement.reduce((sum, item) => sum + (parseFloat(item.cost) || 0), 0).toFixed(2);
+    },
+    totalProfit() {
+      return (this.totalRevenue - this.totalCost).toFixed(2);
+    },
+  },
   mounted() {
-    this.fetchProfits();
+    this.fetchProfitStatement();
   },
   methods: {
-    async fetchProfits() {
+    async fetchProfitStatement() {
       this.loading = true;
       try {
-        const outboundRes = await this.$axios.get('/outboundOrders');
-        const inboundRes = await this.$axios.get('/inboundOrders');
-        const outboundOrders = outboundRes.data || [];
-        const inboundOrders = inboundRes.data || [];
-
-        // 计算月度利润
-        const profitMap = new Map();
-        outboundOrders.forEach(order => {
-          const month = new Date(order.date).toISOString().slice(0, 7); // YYYY-MM
-          const current = profitMap.get(month) || { sales: 0, cost: 0 };
-          current.sales += order.items.reduce((sum, item) => sum + parseFloat(this.calculateItemTotal(item)), 0);
-          profitMap.set(month, current);
-        });
-        inboundOrders.forEach(order => {
-          const month = new Date(order.date).toISOString().slice(0, 7);
-          const current = profitMap.get(month) || { sales: 0, cost: 0 };
-          current.cost += order.items.reduce((sum, item) => sum + parseFloat(this.calculateInboundCost(item)), 0);
-          profitMap.set(month, current);
-        });
-
-        // 转换为数组
-        let profits = Array.from(profitMap.entries()).map(([month, data]) => ({
-          month,
-          sales: data.sales.toFixed(2),
-          cost: data.cost.toFixed(2),
-          profit: (data.sales - data.cost).toFixed(2),
-        }));
-
-        // 应用过滤
+        const params = {
+          _page: this.page,
+          _limit: this.size,
+        };
         if (this.queryForm.date_range && this.queryForm.date_range.length === 2) {
           const [start, end] = this.queryForm.date_range;
-          profits = profits.filter(p => p.month >= start.toISOString().slice(0, 7) && p.month <= end.toISOString().slice(0, 7));
+          params.date_gte = start.toISOString().split('T')[0];
+          params.date_lte = end.toISOString().split('T')[0];
         }
-
-        // 分页
-        this.total = profits.length;
-        const startIdx = (this.page - 1) * this.size;
-        this.profits = profits.slice(startIdx, startIdx + this.size);
+        const outboundRes = await this.$axios.get('/outboundOrders', { params });
+        const inboundRes = await this.$axios.get('/inboundOrders', { params });
+        const outboundData = (outboundRes.data || []).map(item => ({
+          date: item.date,
+          revenue: item.items && Array.isArray(item.items) ? item.items.reduce((sum, i) => sum + this.calculateItemTotal(i), 0) : 0,
+          cost: 0,
+        }));
+        const inboundData = (inboundRes.data || []).map(item => ({
+          date: item.date,
+          revenue: 0,
+          cost: item.items && Array.isArray(item.items) ? item.items.reduce((sum, i) => sum + (i.gold_weight * i.labor_cost || 0), 0) : 0,
+        }));
+        this.profitStatement = [...outboundData, ...inboundData].map(item => ({
+          ...item,
+          profit: (item.revenue - item.cost).toFixed(2),
+        }));
+        this.total = parseInt(outboundRes.headers['x-total-count']) || this.profitStatement.length;
       } catch (err) {
         this.$message.error('加载利润表失败');
-        console.error('Fetch profits error:', err);
+        console.error('Fetch profit statement error:', err);
       } finally {
         this.loading = false;
       }
     },
     calculateItemTotal(item) {
-      const weight = item.pure_weight === 0 || item.pure_weight === undefined ? (item.gold_weight || 0) : item.pure_weight;
+      const weight = item.pure_weight || item.gold_weight || 0;
       const cost = (weight * (item.labor_cost || 0)) +
                    ((item.quantity || 0) * (item.extra_fee || 0)) +
                    ((item.inlay_count || 0) * (item.inlay_labor_cost || 0)) +
                    ((item.stone_weight || 0) * (item.stone_price || 0));
-      return this.orderForm.settle_type === 'price'
-        ? (cost + (weight * (this.orderForm.gold_price || 0))).toFixed(2)
-        : cost.toFixed(2);
+      return cost.toFixed(2);
     },
-    calculateInboundCost(item) {
-      const weight = item.gold_weight || 0;
-      return (weight * (item.labor_cost || 0) + (item.quantity || 0) * (item.extra_fee || 0)).toFixed(2);
+    dateTimeFormatter(row) {
+      return new Date(row.date).toLocaleString();
     },
   },
 };
@@ -129,7 +132,14 @@ export default {
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
+.el-table {
+  font-size: 12px;
+}
 .custom-table {
   margin-bottom: 20px;
+}
+.summary {
+  font-size: 14px;
+  color: #606266;
 }
 </style>
