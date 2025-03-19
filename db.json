@@ -1,0 +1,995 @@
+{
+  "suppliers": [
+    {
+      "id": "1",
+      "code": "S001",
+      "short_name": "供应商A",
+      "full_name": "供应商A全称",
+      "tax_id": "123456789",
+      "legal_person": "张三",
+      "legal_person_id": "110101199001011234",
+      "contact": "李四",
+      "phone": "12345678901",
+      "wechat": "wx123"
+    },
+    {
+      "id": "2",
+      "code": "S002",
+      "short_name": "供应商B",
+      "full_name": "供应商B全称",
+      "tax_id": "987654321",
+      "legal_person": "李五",
+      "legal_person_id": "110101199002021234",
+      "contact": "王六",
+      "phone": "98765432109",
+      "wechat": "wx456"
+    },
+    {
+      "id": null,
+      "code": "HJBL",
+      "short_name": "黄金板料",
+      "full_name": "黄金板料1",
+      "tax_id": "123456",
+      "legal_person": "黄金板料",
+      "legal_person_id": "1234567",
+      "contact": "黄金板料2",
+      "phone": "22222222",
+      "wechat": ""
+    }
+  ],
+  "customers": [
+    {
+      "id": "1",
+      "code": "C001",
+      "name": "客户A",
+      "full_name": "客户A全称",
+      "tax_id": "111111111",
+      "legal_person": "赵七",
+      "legal_person_id": "110101199003031234",
+      "contact": "钱八",
+      "phone": "11111111111",
+      "wechat": "wx789",
+      "sales_template_id": "1",
+      "short_name": "客户A",
+      "debt_material": 0,
+      "debt_labor": 70
+    },
+    {
+      "id": "2",
+      "code": "C002",
+      "short_name": "客户B",
+      "full_name": "客户B全称",
+      "tax_id": "222222222",
+      "legal_person": "孙九",
+      "legal_person_id": "110101199004041234",
+      "contact": "李十",
+      "phone": "22222222222",
+      "wechat": "wx101",
+      "sales_template_id": 2
+    }
+  ],
+  "counters": [
+    {
+      "id": "1",
+      "code": "CT001",
+      "name": "柜台1",
+      "description": "珠宝柜台"
+    },
+    {
+      "id": "2",
+      "code": "CT002",
+      "name": "柜台2",
+      "description": "黄金柜台"
+    }
+  ],
+  "staff": [
+    {
+      "id": "1",
+      "code": "ST001",
+      "name": "员工A",
+      "id_number": "123456789012345678",
+      "phone": "12345678901",
+      "id_address": "地址A",
+      "contact_address": "联系地址A",
+      "education": "本科",
+      "school": "大学A"
+    },
+    {
+      "id": "2",
+      "code": "ST002",
+      "name": "员工B",
+      "id_number": "987654321098765432",
+      "phone": "98765432109",
+      "id_address": "地址B",
+      "contact_address": "联系地址B",
+      "education": "硕士",
+      "school": "大学B"
+    }
+  ],
+  "salesTemplates": [
+    {
+      "id": "1",
+      "template_name": "模板1",
+      "details": [
+        {
+          "category_id": "6350",
+          "labor_cost": 10,
+          "extra_fee": 0,
+          "inlay_labor_cost": 0,
+          "stone_price": 0
+        },
+        {
+          "category_id": "d44a",
+          "labor_cost": 10,
+          "extra_fee": 0,
+          "inlay_labor_cost": 0,
+          "stone_price": 0
+        },
+        {
+          "category_id": "4029",
+          "labor_cost": 10,
+          "extra_fee": 0,
+          "inlay_labor_cost": 0,
+          "stone_price": 0
+        },
+        {
+          "category_id": "49a5",
+          "labor_cost": 10,
+          "extra_fee": 20,
+          "inlay_labor_cost": 0,
+          "stone_price": 0
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "template_name": "模板2",
+      "details": [
+        {
+          "category_id": 2,
+          "labor_cost": 150,
+          "extra_fee": 30,
+          "inlay_labor_cost": 60,
+          "stone_price": 250
+        }
+      ]
+    }
+  ],
+  "supplierStatement": [
+    {
+      "id": "1",
+      "supplier_id": 1,
+      "order_number": "SO001",
+      "date": "2025-03-17",
+      "total_weight": 100,
+      "total_pure_weight": 90,
+      "total_cost": 1000
+    },
+    {
+      "id": "2",
+      "supplier_id": 2,
+      "order_number": "SO002",
+      "date": "2025-03-18",
+      "total_weight": 200,
+      "total_pure_weight": 180,
+      "total_cost": 2000
+    }
+  ],
+  "users": [
+    {
+      "id": "1",
+      "username": "admin",
+      "password": "123456",
+      "role": "admin",
+      "name": "管理员"
+    },
+    {
+      "id": "2",
+      "username": "user1",
+      "password": "654321",
+      "role": "user",
+      "name": "普通用户1"
+    }
+  ],
+  "categories": [
+    {
+      "id": "f64d",
+      "code": "GFXQ",
+      "name": "古法镶嵌",
+      "is_parent": true,
+      "parent_id": null,
+      "description": ""
+    },
+    {
+      "id": "3b9b",
+      "code": "GFDZ",
+      "name": "古法吊坠",
+      "is_parent": true,
+      "parent_id": null,
+      "description": ""
+    },
+    {
+      "id": "6350",
+      "code": "RSSM",
+      "name": "人生四美",
+      "is_parent": false,
+      "parent_id": "3b9b",
+      "description": ""
+    },
+    {
+      "id": "d44a",
+      "code": "BBLP",
+      "name": "八宝罗盘",
+      "is_parent": false,
+      "parent_id": "3b9b",
+      "description": ""
+    },
+    {
+      "id": "4029",
+      "code": "TZMS",
+      "name": "天子门生",
+      "is_parent": false,
+      "parent_id": "3b9b",
+      "description": ""
+    },
+    {
+      "id": "49a5",
+      "code": "RYYM",
+      "name": "如意圆满",
+      "is_parent": false,
+      "parent_id": "3b9b",
+      "description": ""
+    },
+    {
+      "id": "0dbc",
+      "code": "LZZY",
+      "name": "六字真言",
+      "is_parent": false,
+      "parent_id": "f64d",
+      "description": ""
+    },
+    {
+      "id": "f439",
+      "code": "MGH",
+      "name": "玫瑰花",
+      "is_parent": false,
+      "parent_id": "f64d",
+      "description": ""
+    },
+    {
+      "id": "9aa6",
+      "code": "FLDZ",
+      "name": "福禄吊坠",
+      "is_parent": false,
+      "parent_id": "f64d",
+      "description": ""
+    }
+  ],
+  "labelTemplates": [
+    {
+      "id": "1",
+      "name": "K 款模板",
+      "type": "K",
+      "width": 28,
+      "height": 32,
+      "fields": [
+        "barcode",
+        "pureWeight",
+        "inlayCount",
+        "stoneWeight",
+        "extraFee",
+        "productName"
+      ],
+      "customContent": "QB/T 5793—2024\n       Au999",
+      "positions": {
+        "barcode": {
+          "x": 2.6629852294921874,
+          "y": 2.163348388671875,
+          "fontSize": 12
+        },
+        "pureWeight": {
+          "x": 1.763067626953125,
+          "y": 22.56363525390625,
+          "fontSize": 12
+        },
+        "inlayCount": {
+          "x": 1.544317626953125,
+          "y": 26.74317626953125,
+          "fontSize": 12
+        },
+        "stoneWeight": {
+          "x": 14.507955932617188,
+          "y": 27,
+          "fontSize": 12
+        },
+        "extraFee": {
+          "x": 11.850283813476562,
+          "y": 11.54317626953125,
+          "fontSize": 12
+        },
+        "productName": {
+          "x": 2.307672119140625,
+          "y": 17.92613525390625,
+          "fontSize": 12
+        },
+        "customContent": {
+          "x": 3.1431854248046873,
+          "y": 8.1428955078125,
+          "fontSize": 12
+        }
+      }
+    },
+    {
+      "id": "2",
+      "name": "L 款模板",
+      "type": "L",
+      "width": 32,
+      "height": 28,
+      "fields": [
+        "barcode",
+        "pureWeight",
+        "inlayCount",
+        "stoneWeight",
+        "productName",
+        "extraFee"
+      ],
+      "customContent": "",
+      "positions": {
+        "barcode": {
+          "x": 4.5799102783203125,
+          "y": 3.36192626953125,
+          "fontSize": 12
+        },
+        "pureWeight": {
+          "x": 23.306253051757814,
+          "y": 7.086932373046875,
+          "fontSize": 12
+        },
+        "inlayCount": {
+          "x": 13.035513305664063,
+          "y": 16.286077880859374,
+          "fontSize": 12
+        },
+        "stoneWeight": {
+          "x": 13.070455932617188,
+          "y": 1.449432373046875,
+          "fontSize": 12
+        },
+        "extraFee": {
+          "x": 19.140341186523436,
+          "y": 8.45,
+          "fontSize": 12
+        },
+        "productName": {
+          "x": 23,
+          "y": 4.011077880859375,
+          "fontSize": 12
+        },
+        "customContent": {
+          "x": 5,
+          "y": 65,
+          "fontSize": 12
+        }
+      }
+    }
+  ],
+  "inboundOrders": [
+    {
+      "id": "1",
+      "order_number": "IN001",
+      "supplier_id": 1,
+      "date": "2025-03-17",
+      "total_weight": 100,
+      "total_pure_weight": 90,
+      "total_cost": 1000
+    },
+    {
+      "id": "2",
+      "order_number": "IN002",
+      "supplier_id": 2,
+      "date": "2025-03-18",
+      "total_weight": 200,
+      "total_pure_weight": 180,
+      "total_cost": 2000
+    },
+    {
+      "id": "e6f7",
+      "order_number": "IN1742304115477",
+      "date": "2025-03-18T13:21:55.477Z",
+      "supplier_id": "1",
+      "counter_id": "1",
+      "settle_type": "material",
+      "gold_price": 0,
+      "items": [
+        {
+          "barcode": "6901966618909",
+          "parent_code": "GFDZ",
+          "item_code": "RSSM",
+          "name": "人生四美",
+          "subCategories": [
+            {
+              "id": "6350",
+              "code": "RSSM",
+              "name": "人生四美",
+              "is_parent": false,
+              "parent_id": "3b9b",
+              "description": ""
+            },
+            {
+              "id": "d44a",
+              "code": "BBLP",
+              "name": "八宝罗盘",
+              "is_parent": false,
+              "parent_id": "3b9b",
+              "description": ""
+            },
+            {
+              "id": "4029",
+              "code": "TZMS",
+              "name": "天子门生",
+              "is_parent": false,
+              "parent_id": "3b9b",
+              "description": ""
+            },
+            {
+              "id": "49a5",
+              "code": "RYYM",
+              "name": "如意圆满",
+              "is_parent": false,
+              "parent_id": "3b9b",
+              "description": ""
+            }
+          ],
+          "pure_weight": 12,
+          "labor_cost": 10,
+          "quantity": 1,
+          "extra_fee": null,
+          "inlay_count": null,
+          "inlay_labor_cost": null,
+          "stone_weight": null,
+          "stone_price": null,
+          "isImported": false
+        }
+      ],
+      "is_draft": false,
+      "status": "已审核"
+    },
+    {
+      "id": "38aa",
+      "order_number": "IN1742370934614",
+      "date": "2025-03-19T07:55:34.614Z",
+      "supplier_id": "1",
+      "counter_id": "1",
+      "settle_type": "material",
+      "gold_price": 0,
+      "items": [
+        {
+          "barcode": "6903009890396",
+          "parent_code": "GFXQ",
+          "item_code": "LZZY",
+          "name": "六字真言",
+          "subCategories": [
+            {
+              "id": "0dbc",
+              "code": "LZZY",
+              "name": "六字真言",
+              "is_parent": false,
+              "parent_id": "f64d",
+              "description": ""
+            },
+            {
+              "id": "f439",
+              "code": "MGH",
+              "name": "玫瑰花",
+              "is_parent": false,
+              "parent_id": "f64d",
+              "description": ""
+            },
+            {
+              "id": "9aa6",
+              "code": "FLDZ",
+              "name": "福禄吊坠",
+              "is_parent": false,
+              "parent_id": "f64d",
+              "description": ""
+            }
+          ],
+          "pure_weight": 16.36,
+          "labor_cost": 6,
+          "quantity": 1,
+          "inlay_count": 56,
+          "inlay_labor_cost": 1,
+          "stone_weight": 0.36,
+          "stone_price": 50,
+          "isImported": false
+        },
+        {
+          "barcode": "6909992293510",
+          "parent_code": "GFXQ",
+          "item_code": "MGH",
+          "name": "玫瑰花",
+          "subCategories": [
+            {
+              "id": "0dbc",
+              "code": "LZZY",
+              "name": "六字真言",
+              "is_parent": false,
+              "parent_id": "f64d",
+              "description": ""
+            },
+            {
+              "id": "f439",
+              "code": "MGH",
+              "name": "玫瑰花",
+              "is_parent": false,
+              "parent_id": "f64d",
+              "description": ""
+            },
+            {
+              "id": "9aa6",
+              "code": "FLDZ",
+              "name": "福禄吊坠",
+              "is_parent": false,
+              "parent_id": "f64d",
+              "description": ""
+            }
+          ],
+          "pure_weight": 12.25,
+          "labor_cost": 6,
+          "quantity": 1,
+          "inlay_count": 37,
+          "inlay_labor_cost": 1,
+          "stone_weight": 0.58,
+          "stone_price": 50,
+          "isImported": false
+        }
+      ],
+      "is_draft": false,
+      "status": "已退货"
+    },
+    {
+      "id": "0b47",
+      "order_number": "IN1742370934614",
+      "date": "2025-03-19T07:55:34.614Z",
+      "supplier_id": "1",
+      "counter_id": "1",
+      "settle_type": "material",
+      "gold_price": 0,
+      "items": [
+        {
+          "barcode": "6903009890396",
+          "parent_code": "GFXQ",
+          "item_code": "LZZY",
+          "name": "六字真言",
+          "subCategories": [
+            {
+              "id": "0dbc",
+              "code": "LZZY",
+              "name": "六字真言",
+              "is_parent": false,
+              "parent_id": "f64d",
+              "description": ""
+            },
+            {
+              "id": "f439",
+              "code": "MGH",
+              "name": "玫瑰花",
+              "is_parent": false,
+              "parent_id": "f64d",
+              "description": ""
+            },
+            {
+              "id": "9aa6",
+              "code": "FLDZ",
+              "name": "福禄吊坠",
+              "is_parent": false,
+              "parent_id": "f64d",
+              "description": ""
+            }
+          ],
+          "pure_weight": 16.36,
+          "labor_cost": 6,
+          "quantity": 1,
+          "inlay_count": 56,
+          "inlay_labor_cost": 1,
+          "stone_weight": 0.36,
+          "stone_price": 50,
+          "isImported": false
+        },
+        {
+          "barcode": "6909992293510",
+          "parent_code": "GFXQ",
+          "item_code": "MGH",
+          "name": "玫瑰花",
+          "subCategories": [
+            {
+              "id": "0dbc",
+              "code": "LZZY",
+              "name": "六字真言",
+              "is_parent": false,
+              "parent_id": "f64d",
+              "description": ""
+            },
+            {
+              "id": "f439",
+              "code": "MGH",
+              "name": "玫瑰花",
+              "is_parent": false,
+              "parent_id": "f64d",
+              "description": ""
+            },
+            {
+              "id": "9aa6",
+              "code": "FLDZ",
+              "name": "福禄吊坠",
+              "is_parent": false,
+              "parent_id": "f64d",
+              "description": ""
+            }
+          ],
+          "pure_weight": 12.25,
+          "labor_cost": 6,
+          "quantity": 1,
+          "inlay_count": 37,
+          "inlay_labor_cost": 1,
+          "stone_weight": 0.58,
+          "stone_price": 50,
+          "isImported": false
+        }
+      ],
+      "is_draft": false,
+      "status": "已审核"
+    }
+  ],
+  "outboundOrders": [
+    {
+      "id": "1",
+      "order_number": "OUT001",
+      "customer_id": 1,
+      "date": "2025-03-17",
+      "total_weight": 50,
+      "total_pure_weight": 45,
+      "total_cost": 500
+    },
+    {
+      "id": "2",
+      "order_number": "OUT002",
+      "customer_id": 2,
+      "date": "2025-03-18",
+      "total_weight": 150,
+      "total_pure_weight": 135,
+      "total_cost": 1500
+    },
+    {
+      "id": "aa85",
+      "order_number": "OUT1742323859004",
+      "date": "2025-03-18T18:50:59.004Z",
+      "customer_id": "1",
+      "counter_id": "1",
+      "settle_type": "material",
+      "gold_price": 0,
+      "debt_material": 0,
+      "debt_labor": 0,
+      "items": [],
+      "status": "已审核"
+    },
+    {
+      "id": "5f6a",
+      "order_number": "OUT1742363926588",
+      "date": "2025-03-19T05:58:46.588Z",
+      "customer_id": "1",
+      "counter_id": "1",
+      "settle_type": "material",
+      "gold_price": 0,
+      "debt_material": 0,
+      "debt_labor": 20,
+      "items": [],
+      "status": "已审核"
+    },
+    {
+      "id": "b4f1",
+      "order_number": "OUT1742364692365",
+      "date": "2025-03-19T06:11:32.365Z",
+      "customer_id": "1",
+      "counter_id": "2",
+      "settle_type": "material",
+      "gold_price": 0,
+      "debt_material": 0,
+      "debt_labor": 40,
+      "items": [
+        {
+          "barcode": "6901966618909",
+          "parent_code": "GFDZ",
+          "item_code": "RSSM",
+          "name": "RSSM 人生四美",
+          "subCategories": [
+            {
+              "id": "6350",
+              "code": "RSSM",
+              "name": "人生四美",
+              "is_parent": false,
+              "parent_id": "3b9b",
+              "description": ""
+            },
+            {
+              "id": "d44a",
+              "code": "BBLP",
+              "name": "八宝罗盘",
+              "is_parent": false,
+              "parent_id": "3b9b",
+              "description": ""
+            },
+            {
+              "id": "4029",
+              "code": "TZMS",
+              "name": "天子门生",
+              "is_parent": false,
+              "parent_id": "3b9b",
+              "description": ""
+            },
+            {
+              "id": "49a5",
+              "code": "RYYM",
+              "name": "如意圆满",
+              "is_parent": false,
+              "parent_id": "3b9b",
+              "description": ""
+            }
+          ],
+          "quantity": 1,
+          "gold_weight": 0,
+          "pure_weight": 12,
+          "labor_cost": 10,
+          "extra_fee": 0,
+          "inlay_count": 0,
+          "inlay_labor_cost": 0,
+          "stone_weight": 0,
+          "stone_price": 0,
+          "isLocked": true
+        }
+      ],
+      "status": "待审核"
+    },
+    {
+      "id": "1934",
+      "order_number": "OUT1742367018375",
+      "date": "2025-03-19T06:50:18.375Z",
+      "customer_id": "1",
+      "counter_id": "1",
+      "settle_type": "material",
+      "gold_price": 0,
+      "debt_material": 0,
+      "debt_labor": 50,
+      "items": [
+        {
+          "barcode": "6901966618909",
+          "parent_code": "GFDZ",
+          "item_code": "RSSM",
+          "name": "RSSM 人生四美",
+          "subCategories": [
+            {
+              "id": "6350",
+              "code": "RSSM",
+              "name": "人生四美",
+              "is_parent": false,
+              "parent_id": "3b9b",
+              "description": ""
+            },
+            {
+              "id": "d44a",
+              "code": "BBLP",
+              "name": "八宝罗盘",
+              "is_parent": false,
+              "parent_id": "3b9b",
+              "description": ""
+            },
+            {
+              "id": "4029",
+              "code": "TZMS",
+              "name": "天子门生",
+              "is_parent": false,
+              "parent_id": "3b9b",
+              "description": ""
+            },
+            {
+              "id": "49a5",
+              "code": "RYYM",
+              "name": "如意圆满",
+              "is_parent": false,
+              "parent_id": "3b9b",
+              "description": ""
+            }
+          ],
+          "quantity": 1,
+          "gold_weight": 0,
+          "pure_weight": 12,
+          "labor_cost": 10,
+          "extra_fee": 0,
+          "inlay_count": 0,
+          "inlay_labor_cost": 0,
+          "stone_weight": 0,
+          "stone_price": 0,
+          "isLocked": true
+        }
+      ],
+      "status": "待审核"
+    },
+    {
+      "id": "9949",
+      "order_number": "OUT1742369245895",
+      "date": "2025-03-19T07:27:25.895Z",
+      "customer_id": "1",
+      "counter_id": "1",
+      "settle_type": "material",
+      "gold_price": 0,
+      "debt_material": 0,
+      "debt_labor": 60,
+      "items": [
+        {
+          "barcode": "6901966618909",
+          "parent_code": "GFDZ",
+          "item_code": "RSSM",
+          "name": "RSSM 人生四美",
+          "subCategories": [
+            {
+              "id": "6350",
+              "code": "RSSM",
+              "name": "人生四美",
+              "is_parent": false,
+              "parent_id": "3b9b",
+              "description": ""
+            },
+            {
+              "id": "d44a",
+              "code": "BBLP",
+              "name": "八宝罗盘",
+              "is_parent": false,
+              "parent_id": "3b9b",
+              "description": ""
+            },
+            {
+              "id": "4029",
+              "code": "TZMS",
+              "name": "天子门生",
+              "is_parent": false,
+              "parent_id": "3b9b",
+              "description": ""
+            },
+            {
+              "id": "49a5",
+              "code": "RYYM",
+              "name": "如意圆满",
+              "is_parent": false,
+              "parent_id": "3b9b",
+              "description": ""
+            }
+          ],
+          "quantity": 1,
+          "gold_weight": 0,
+          "pure_weight": 12,
+          "labor_cost": 10,
+          "extra_fee": 0,
+          "inlay_count": 0,
+          "inlay_labor_cost": 0,
+          "stone_weight": 0,
+          "stone_price": 0,
+          "isLocked": true
+        }
+      ],
+      "status": "待审核"
+    }
+  ],
+  "returnOrders": [
+    {
+      "id": "1",
+      "order_number": "RET001",
+      "customer_id": 1,
+      "date": "2025-03-17",
+      "total_weight": 20,
+      "total_pure_weight": 18,
+      "total_cost": 200
+    },
+    {
+      "id": "2",
+      "order_number": "RET002",
+      "customer_id": 2,
+      "date": "2025-03-18",
+      "total_weight": 30,
+      "total_pure_weight": 27,
+      "total_cost": 300
+    }
+  ],
+  "inventory": [
+    {
+      "id": "1",
+      "item_code": "ITEM001",
+      "name": "珠宝项链",
+      "quantity": 10,
+      "total_weight": 50
+    },
+    {
+      "id": "2",
+      "item_code": "ITEM002",
+      "name": "黄金戒指",
+      "quantity": 5,
+      "total_weight": 25
+    }
+  ],
+  "materialInventory": [
+    {
+      "id": "1",
+      "material_code": "MAT001",
+      "name": "黄金原料",
+      "quantity": 1000
+    },
+    {
+      "id": "2",
+      "material_code": "MAT002",
+      "name": "钻石原料",
+      "quantity": 500
+    }
+  ],
+  "paymentRecords": [
+    {
+      "id": "1",
+      "record_number": "PAY001",
+      "supplier_id": 1,
+      "date": "2025-03-17",
+      "amount": 500,
+      "payment_method": "cash"
+    },
+    {
+      "id": "2",
+      "record_number": "PAY002",
+      "supplier_id": 2,
+      "date": "2025-03-18",
+      "amount": 1000,
+      "payment_method": "bank"
+    },
+    {
+      "id": "d7df",
+      "record_number": "PAY-1742268256071",
+      "type": "purchase_material",
+      "date": "2025-03-18T03:24:16.071Z",
+      "supplier_id": "1",
+      "customer_id": null,
+      "payment_subtype": "material",
+      "material_weight": 1000,
+      "amount": 700000,
+      "processing_fee": 0,
+      "customer_payments": []
+    }
+  ],
+  "customerOwed": [
+    {
+      "id": "1",
+      "record_number": "OWE001",
+      "customer_id": 1,
+      "date": "2025-03-17",
+      "amount": 300,
+      "payment_method": "wechat"
+    },
+    {
+      "id": "2",
+      "record_number": "OWE002",
+      "customer_id": 2,
+      "date": "2025-03-18",
+      "amount": 700,
+      "payment_method": "alipay"
+    }
+  ],
+  "customerReport": [
+    {
+      "id": "1",
+      "customer_id": 1,
+      "total_sales": 1000,
+      "total_owed": 300
+    },
+    {
+      "id": "2",
+      "customer_id": 2,
+      "total_sales": 2000,
+      "total_owed": 700
+    }
+  ]
+}
