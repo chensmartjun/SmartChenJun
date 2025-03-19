@@ -43,8 +43,8 @@
               <el-col :span="6">
                 <el-form-item label="结算方式" prop="settle_type">
                   <el-radio-group v-model="orderForm.settle_type" :disabled="!orderForm.order_number">
-                    <el-radio label="price">结价</el-radio>
-                    <el-radio label="material">结料</el-radio>
+                    <el-radio value="price">结价</el-radio>
+                    <el-radio value="material">结料</el-radio>
                   </el-radio-group>
                 </el-form-item>
               </el-col>
