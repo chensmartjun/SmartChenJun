@@ -89,12 +89,13 @@ export default {
           { path: '/outbound', label: '出库管理', icon: 'el-icon-upload' },
           { path: '/returns', label: '退货管理', icon: 'el-icon-refresh-left' },
           { path: '/inventory', label: '库存查询', icon: 'el-icon-search' },
-          { path: '/materialInventory', label: '物料库存', icon: 'el-icon-box' },
+          { path: '/materialInventory', label: '板料库存', icon: 'el-icon-box' },
         ],
         finance: [
           { path: '/paymentRecords', label: '收支管理', icon: 'el-icon-money' },
           { path: '/customerOwed', label: '客户对账单', icon: 'el-icon-wallet' },
           { path: '/supplierStatement', label: '供应商对账单', icon: 'el-icon-document' },
+          { path: '/profitStatement', label: '利润表', icon: 'el-icon-document' },
         ],
         report: [
           { path: '/customerReport', label: '客户报表', icon: 'el-icon-pie-chart' },
